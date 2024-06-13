@@ -1,0 +1,7 @@
+<library path="lib/libflir_ros">
+  <class name="flir_ros/FlirRos" type="flir_ros::FlirRos" base_class_type="nodelet::Nodelet">
+    <description>
+        FLIR Boson ROS driver.
+    </description>
+  </class>
+</library>

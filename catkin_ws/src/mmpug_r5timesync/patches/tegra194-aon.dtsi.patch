@@ -1,0 +1,13 @@
+--- hardware/nvidia/soc/t19x/kernel-dts/tegra194-soc/tegra194-aon.dtsi	2020-08-23 12:57:24.828833400 -0400
++++ hardware/nvidia/soc/t19x/kernel-dts/tegra194-soc/tegra194-aon.dtsi	2020-08-23 14:50:29.161178100 -0400
+@@ -86,4 +86,10 @@
+                 compatible = "nvidia,tegra186_aon_shub";
+                 mboxes = <&aon 5>;
+         };
++
++        aon_echo {
++                compatible = "nvidia,tegra186-aon-ivc-echo";
++                mboxes = <&aon 0>;
++                status = "okay";
++        };
+ };

@@ -1,0 +1,324 @@
+#!/usr/bin/python3
+
+import argparse
+
+import jetson.ftdi
+
+class Command:
+    @classmethod
+    def setup(cls, parser):
+        if hasattr(cls, 'subcommands'):
+            sub_parsers = parser.add_subparsers(title = 'subcommands')
+
+            for subcommand in cls.subcommands:
+                sub_parser = sub_parsers.add_parser(subcommand.name,
+                                                    help = subcommand.help)
+                sub_parser.set_defaults(exec = subcommand.exec)
+                subcommand.setup(sub_parser)
+
+    @classmethod
+    def exec(url, args):
+        pass
+
+'''
+Lists all supported devices.
+'''
+class CommandDevices(Command):
+    name = 'devices'
+    help = 'list all supported devices'
+
+    @classmethod
+    def exec(cls, url, args):
+        products = jetson.ftdi.find()
+
+        for product in products:
+            print('%04x:%04x: %s' % (product.vid, product.pid, product.description))
+
+            if product.serial:
+                print('  serial:', product.serial)
+
+'''
+Lists all supported buttons for a device.
+'''
+class CommandButtons(Command):
+    name = 'buttons'
+    help = 'list all supported buttons'
+
+    @classmethod
+    def exec(cls, url, args):
+        try:
+            device = jetson.ftdi.Device(url)
+        except:
+            raise
+
+        for button in device.buttons:
+            print('%s' % button.name)
+
+'''
+Simulates a button press.
+
+The first argument is the name of the button to press. It can be one of:
+
+* power
+* reset
+* recovery
+* force-off
+'''
+class CommandPress(Command):
+    name = 'press'
+    help = 'simulate a button press'
+
+    @classmethod
+    def setup(cls, parser):
+        parser.add_argument('button', help = 'name of the button to simulate')
+
+    @classmethod
+    def exec(cls, url, args):
+        try:
+            device = jetson.ftdi.Device(url)
+        except:
+            raise
+
+        for button in device.buttons:
+            if button.name == args.button:
+                button.press()
+                break
+        else:
+            print('unknown button "%s"' % args.button)
+
+'''
+Simulates a button release.
+
+The first argument is the name of the button to release. It can be one of:
+
+* power
+* reset
+* recovery
+* force-off
+'''
+class CommandRelease(Command):
+    name = 'release'
+    help = 'simulate a button release'
+
+    @classmethod
+    def setup(cls, parser):
+        parser.add_argument('button', help = 'name of the button to simulate')
+
+    @classmethod
+    def exec(cls, url, args):
+        try:
+            device = jetson.ftdi.Device(url)
+        except:
+            raise
+
+        for button in device.buttons:
+            if button.name == args.button:
+                button.release()
+                break
+        else:
+            print('unknown button "%s"' % args.button)
+
+'''
+Retrieves the status of a power rail.
+'''
+class CommandPowerRail(Command):
+    name = 'power-rail'
+    help = 'display power rail status'
+
+    @classmethod
+    def setup(cls, parser):
+        parser.add_argument('rail', nargs = '?', help = 'name of power rail')
+
+    @classmethod
+    def exec(cls, url, args):
+        try:
+            device = jetson.ftdi.Device(url)
+        except:
+            raise
+
+        if args.rail:
+            name = args.rail
+
+            for rail in device.rails:
+                if rail.name == name:
+                    rails = [ rail ]
+                    break
+            else:
+                print('unknown power rail "%s"' % name)
+                return
+        else:
+            rails = device.rails
+
+        for rail in rails:
+            status = 'on' if rail.status() else 'off'
+
+            print('%s: %s' % (rail.name, status))
+
+'''
+Reads the EEPROM and prints a hexdump of it to standard output.
+'''
+class CommandEepromDump(Command):
+    name = 'dump'
+    help = 'display hexadecimal dump of EEPROM contents'
+
+    @classmethod
+    def exec(cls, url, args):
+        try:
+            device = jetson.ftdi.Device(url)
+        except:
+            raise
+
+        device.eeprom.read()
+        device.eeprom.dump()
+
+'''
+Reads the EEPROM and shows a human readable representation of it.
+'''
+class CommandEepromShow(Command):
+    name = 'show'
+    help = 'display EEPROM contents in human readable form'
+
+    @classmethod
+    def exec(cls, url, args):
+        try:
+            device = jetson.ftdi.Device(url)
+        except:
+            raise
+
+        device.eeprom.read()
+
+        if device.eeprom.valid:
+            device.eeprom.show()
+
+'''
+Reads the EEPROM and writes the raw data to a file.
+
+The first argument specifies the path to the file.
+'''
+class CommandEepromRead(Command):
+    name = 'read'
+    help = 'read EEPROM and write contents into a file'
+
+    @classmethod
+    def setup(cls, parser):
+        parser.add_argument('file', type = argparse.FileType('wb'))
+
+    @classmethod
+    def exec(cls, url, args):
+        try:
+            device = jetson.ftdi.Device(url)
+        except:
+            raise
+
+        data = device.eeprom.read()
+        args.file.write(data)
+
+'''
+Reads a file and writes its contents to the EEPROM.
+
+The first argument specifies the path to the file.
+'''
+class CommandEepromWrite(Command):
+    name = 'write'
+    help = 'write EEPROM with file contents'
+
+    @classmethod
+    def setup(cls, parser):
+        parser.add_argument('file', type = argparse.FileType('rb'))
+
+    @classmethod
+    def exec(cls, url, args):
+        try:
+            device = jetson.ftdi.Device(url)
+        except:
+            raise
+
+        data = args.file.read()
+        device.eeprom.write(data)
+
+'''
+Erases the EEPROM.
+'''
+class CommandEepromErase(Command):
+    name = 'erase'
+    help = 'erase EEPROM'
+
+    @classmethod
+    def exec(cls, url, args):
+        try:
+            device = jetson.ftdi.Device(url)
+        except:
+            raise
+
+        device.eeprom.erase()
+
+'''
+Executes one of the EEPROM sub-commands.
+
+The first argument is the name of the sub-command. Subsequent arguments will
+be passed to the sub-command.
+'''
+class CommandEeprom(Command):
+    name = 'eeprom'
+    help = 'execute one of the EEPROM subcommands'
+
+    subcommands = [
+            CommandEepromDump,
+            CommandEepromShow,
+            CommandEepromRead,
+            CommandEepromWrite,
+            CommandEepromErase,
+        ]
+
+    @classmethod
+    def exec(cls, url, args):
+        try:
+            device = jetson.ftdi.Device(url)
+        except:
+            raise
+
+        cls.subcommands[0].exec(url, args)
+
+# list of commands supported by the jetson-control utility
+commands = {
+        CommandDevices,
+        CommandButtons,
+        CommandPress,
+        CommandRelease,
+        CommandPowerRail,
+        CommandEeprom,
+    }
+
+if __name__ == '__main__':
+    parser = argparse.ArgumentParser()
+    parser.add_argument('-s', '--serial', type=str, help = 'serial number')
+
+    command_parsers = parser.add_subparsers(title = 'commands')
+
+    for subcommand in commands:
+        sub_parser = command_parsers.add_parser(subcommand.name,
+                                                help = subcommand.help)
+        sub_parser.set_defaults(exec = subcommand.exec)
+        subcommand.setup(sub_parser)
+
+    args = parser.parse_args()
+
+    # if the user requested a specific serial number, use that to look up an
+    # FTDI device
+    if args.serial:
+        url = 'ftdi://::%s/1' % args.serial
+    else:
+        url = 'ftdi://ftdi:/1'
+
+    try:
+        # Python 3.7.0 introduced a 'required' keyword argument to the
+        # ArgumentParser.add_subparsers() function, which, if True, causes
+        # the parser to output an error if no command was specified on the
+        # command-line. To support older versions of Python as well, check
+        # manually whether or not a command was specified.
+        if hasattr(args, 'exec'):
+            args.exec(url, args)
+        else:
+            parser.print_help()
+    except jetson.ftdi.Error as e:
+        print(e)

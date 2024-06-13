@@ -1,0 +1,8 @@
+repo_?
+bag_test
+teensy_ntp_shm_sync_old
+**.catkin_tools
+**build
+**devel
+**logs
+**mmpug_flir_ros_old
