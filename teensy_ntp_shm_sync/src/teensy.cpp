@@ -62,7 +62,7 @@ bool Teensy::get_packet(TeensyPacket* packet){
       break;
     case PAYLOAD:
       if(payload_count < PAYLOAD_SIZE){
-	this->packet.time_since_boot_in_tenths_of_seconds |= byte << 8*payload_count;
+	this->packet.time_since_boot_in_tenths_of_seconds |= byte << 8*payload_count;  // get the the time info from teensy...
       }
       payload_count++;
       
@@ -80,7 +80,7 @@ bool Teensy::get_packet(TeensyPacket* packet){
     case FOOTER2:
       state = HEADER1;
       if(byte == FOOTER_SECOND_BYTE){
-	*packet = this->packet;
+	*packet = this->packet; // last step... we want to place the information into the packet
 	return true;
       }
       break;

@@ -86,7 +86,7 @@ void pulse(){  // this function is called every 0.1ms = 10Hz ???
     pulse_count = 0;
 }
 
-uint8_t opposite_state(uint8_t s){
+uint8_t opposite_state(uint8_t s){  // not called?
   if(s == HIGH)
     return LOW;
   return HIGH;
@@ -103,12 +103,12 @@ void big_delay(int ns){
     delayNanoseconds(remainder);
 }
 
-int period = 16666666;
+int period = 16666666;  // why this amount?? what are pin 1 and 2, camera shutter open/close? does this delay set the rate??
 // put your main code here, to run repeatedly:
 void loop() {
  
   digitalWrite(output_pin1, HIGH);
-  delayNanoseconds(pulse_length);
+  delayNanoseconds(pulse_length);  // 1.8 us pulse
   digitalWrite(output_pin1, LOW);
 
   big_delay(period/2 - pulse_length);

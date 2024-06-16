@@ -17,7 +17,7 @@
 
 int main(int argc, char** argv){
   if(argc < 2){
-    std::cout << "Usage: ./teensy_npt_shm [teensy device path]" << std::endl;
+    std::cout << "Usage: ./teensy_npt_shm [teensy device path]" << std::endl;  // dev/ttyACM0
     return 0;
   }
 
@@ -50,11 +50,11 @@ int main(int argc, char** argv){
       get_system_time(&system_seconds, &system_useconds);
       
       if(first_packet){
-	initial_system_seconds = system_seconds/10*10;
-	teensy_seconds_offset = teensy_seconds/10*10;
-	
-	first_packet = false;
-	continue;
+        initial_system_seconds = system_seconds/10*10;
+        teensy_seconds_offset = teensy_seconds/10*10;
+        
+        first_packet = false;
+        continue;
       }
 
       target_system_seconds = initial_system_seconds + teensy_seconds;
@@ -63,11 +63,11 @@ int main(int argc, char** argv){
       ntp_shm.add_time(target_system_seconds, target_system_useconds, system_seconds, system_useconds);
 
       if(teensy_useconds == 0){
-	time_t offset = (system_seconds*1000000 + (time_t)system_useconds) - (target_system_seconds*1000000 + (time_t)target_system_useconds);
-	std::cout << std::dec;
-	std::cout << "system time: " << system_seconds << ", " << system_useconds << std::endl;
-	std::cout << "teensy time: " << target_system_seconds << ", " << target_system_useconds << std::endl;
-	std::cout << "offset: " << offset << " us" << std::endl << std::endl;
+        time_t offset = (system_seconds*1000000 + (time_t)system_useconds) - (target_system_seconds*1000000 + (time_t)target_system_useconds);
+        std::cout << std::dec;
+        std::cout << "system time: " << system_seconds << ", " << system_useconds << std::endl;
+        std::cout << "teensy time: " << target_system_seconds << ", " << target_system_useconds << std::endl;
+        std::cout << "offset: " << offset << " us" << std::endl << std::endl;
       }
     }
     
