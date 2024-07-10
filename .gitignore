@@ -6,6 +6,7 @@ teensy_ntp_shm_sync_old
 **devel
 **logs
 **mmpug_flir_ros_old
+**mmpug_flir_ros_old2
 **.vscode
 
 ## Ignore Visual Studio temporary files, build results, and
