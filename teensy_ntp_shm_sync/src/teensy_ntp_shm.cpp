@@ -41,7 +41,7 @@ int main(int argc, char** argv){
   // lights up for 1 second every multiple of 10 seconds since boot.
   while(true){
     if(teensy.get_packet(&packet)){
-      //std::cout << "packet: " << std::dec << packet.time_since_boot_in_tenths_of_seconds << std::endl;
+      // std::cout << "packet: " << std::dec << packet.time_since_boot_in_tenths_of_seconds << std::endl;
       time_t teensy_seconds = packet.time_since_boot_in_tenths_of_seconds/10 - teensy_seconds_offset;
       int teensy_useconds = (packet.time_since_boot_in_tenths_of_seconds - packet.time_since_boot_in_tenths_of_seconds/10*10)*100000;
 

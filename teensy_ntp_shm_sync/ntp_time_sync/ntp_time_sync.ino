@@ -25,6 +25,10 @@ const int LED_pin = 13;         // LED output,  for testing
 int output_pin1 = 4;
 int output_pin2 = 5;
 
+// GPS
+int gps_trigger_pin = 6;  // GPS trigger input pin
+volatile bool gps_triggered = false;  // flag to indicate GPS trigger
+
 uint8_t state = HIGH;
 int pulse_length = 1800;  // 1.8us
 
@@ -35,7 +39,16 @@ char* packet;
 unsigned int packet_size = sizeof(unsigned short) + sizeof(unsigned int) + sizeof(unsigned short);  // 8 bytes total? 2 + 4 + 2
 volatile unsigned short pulse_count = 0;
 
-IntervalTimer timer;
+IntervalTimer serial_timer;
+IntervalTimer stereo_timer; // to run 60Hz for 1/10s
+
+// GPS
+void gps_trigger() {
+  // End any previous timer before starting a new one
+  stereo_timer.end();
+  // Begin a new timer to trigger stereo pulses at 60Hz for 1/10 of a second
+  stereo_timer.begin(trigger_stereo, 16666);
+}
 
 // put your setup code here, to run once:
 void setup() {
@@ -45,14 +58,18 @@ void setup() {
   pinMode(output_pin1, OUTPUT);  // set the digital pin as output
   pinMode(output_pin2, OUTPUT);  // set the digital pin as output
 
+  // GPS
+  pinMode(gps_trigger_pin, INPUT);  // set the GPS trigger pin as input
+  attachInterrupt(digitalPinToInterrupt(gps_trigger_pin), gps_trigger, RISING);  // attach interrupt to GPS trigger pin
+
   packet = (char*)malloc(packet_size);  // allocate memory for the packet
 
   Serial.begin(9600);  // for usb serial, for testing. can directly connect to PC
 
-  timer.begin(pulse, 100000);  // 100000 ns = 0.1ms = 10Hz
+  serial_timer.begin(pulse, 100000);  // 100000 ns = 0.1ms = 10Hz
 }
 
-void pulse(){  // this function is called every 0.1ms = 10Hz ???
+void pulse(){  // this function is called every 0.1ms = 10Hz, however we might not even need this if the computer is already synced with the GPS!!!!
   // turn the LED on for 1 second at the beginning of each 10 second period
   if(pulse_count == 0)
     digitalWrite(LED_pin, HIGH);
@@ -86,11 +103,11 @@ void pulse(){  // this function is called every 0.1ms = 10Hz ???
     pulse_count = 0;
 }
 
-uint8_t opposite_state(uint8_t s){  // not called?
-  if(s == HIGH)
-    return LOW;
-  return HIGH;
-}
+// uint8_t opposite_state(uint8_t s){  // not called?
+//   if(s == HIGH)
+//     return LOW;
+//   return HIGH;
+// }
 
 // if delayNanoseconds tries to sleep for too long there is some rollover internally and it doesn't sleep for the right amount of time
 void big_delay(int ns){
@@ -103,21 +120,41 @@ void big_delay(int ns){
     delayNanoseconds(remainder);
 }
 
-int period = 16666666;  // why this amount?? what are pin 1 and 2, camera shutter open/close? does this delay set the rate??
+int period = 16666666;
+
+void trigger_stereo() {
+  // Generate 6 pulses within each call at 60 Hz rate = 10 Hz
+  for (int i = 0; i < 6; i++) {
+    digitalWrite(output_pin1, HIGH);
+    delayNanoseconds(pulse_length);
+    digitalWrite(output_pin1, LOW);
+
+    big_delay((period / 6 - pulse_length));
+
+    digitalWrite(output_pin2, HIGH);
+    delayNanoseconds(pulse_length);
+    digitalWrite(output_pin2, LOW);
+
+    big_delay((period / 6 - pulse_length));
+  }
+}
+
 // put your main code here, to run repeatedly:
-void loop() {
- 
-  digitalWrite(output_pin1, HIGH);
-  delayNanoseconds(pulse_length);  // 1.8 us pulse
-  digitalWrite(output_pin1, LOW);
+// void loop() {
 
-  big_delay(period/2 - pulse_length);
+  // old loop to trigger two pins
 
-  digitalWrite(output_pin2, HIGH);
-  delayNanoseconds(pulse_length);
-  digitalWrite(output_pin2, LOW);
+  // digitalWrite(output_pin1, HIGH);
+  // delayNanoseconds(pulse_length);  // 1.8 us pulse
+  // digitalWrite(output_pin1, LOW);
 
-  big_delay(period/2 - pulse_length);
+  // big_delay(period/2 - pulse_length);
+
+  // digitalWrite(output_pin2, HIGH);
+  // delayNanoseconds(pulse_length);
+  // digitalWrite(output_pin2, LOW);
+
+  // big_delay(period/2 - pulse_length);
 
  /* working with 1 pin
   digitalWrite(output_pin1, HIGH);
@@ -129,5 +166,5 @@ void loop() {
     delayNanoseconds(delay);
   delayNanoseconds(666666 - pulse_length);
 */
-}
+// }
 
