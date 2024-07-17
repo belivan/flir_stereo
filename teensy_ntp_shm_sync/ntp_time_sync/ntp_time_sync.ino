@@ -48,6 +48,11 @@ void gps_trigger() {
   stereo_timer.end();
   // Begin a new timer to trigger stereo pulses at 60Hz for 1/10 of a second
   stereo_timer.begin(trigger_stereo, 16666);
+
+  // Print out the time since boot in tenths of a second
+  Serial.print("GPS Triggered at ");
+  Serial.print(time_since_boot_in_tenths_of_seconds);
+  Serial.println(" tenths of a second since boot.");
 }
 
 // put your setup code here, to run once:
