@@ -22,16 +22,20 @@
 */
 
 const int LED_pin = 13;         // LED output,  for testing
-int output_pin1 = 4;
-int output_pin2 = 5;
+int output_pin1 = 6;
+int output_pin2 = 7;
 
 // GPS
-int gps_trigger_pin = 6;  // GPS trigger input pin
+int gps_trigger_pin = 8;  // GPS trigger input pin
 volatile bool gps_triggered = false;  // flag to indicate GPS trigger
+bool gps_first_trigger = true;  // flag to indicate first GPS trigger
 
 uint8_t state = HIGH;
 int pulse_length = 1800;  // 1.8us
 
+int pulse_count = 0;
+
+/*
 unsigned int time_since_boot_in_tenths_of_seconds = 0;  
 unsigned short header = 0x55aa;
 unsigned short footer = 0x66bb;
@@ -40,23 +44,23 @@ unsigned int packet_size = sizeof(unsigned short) + sizeof(unsigned int) + sizeo
 volatile unsigned short pulse_count = 0;
 
 IntervalTimer serial_timer;
-IntervalTimer stereo_timer; // to run 60Hz for 1/10s
+*/
 
-// GPS
+unsigned long start_time = 0;
+unsigned long gps_trigger_start_time = 0; // microseconds
+unsigned long gps_trigger_end_time = 0; // microseconds
+
+int period = 16666666;
+
+// ISR to handle the GPS trigger
 void gps_trigger() {
-  // End any previous timer before starting a new one
-  stereo_timer.end();
-  // Begin a new timer to trigger stereo pulses at 60Hz for 1/10 of a second
-  stereo_timer.begin(trigger_stereo, 16666);
-
-  // Print out the time since boot in tenths of a second
-  Serial.print("GPS Triggered at ");
-  Serial.print(time_since_boot_in_tenths_of_seconds);
-  Serial.println(" tenths of a second since boot.");
+    gps_triggered = true; // Set the flag
 }
 
 // put your setup code here, to run once:
 void setup() {
+  start_time = millis();
+
   pinMode(LED_pin, OUTPUT);  // pin 13 has an LED connected on most Arduino boards, set as output
   digitalWrite(LED_pin, OUTPUT);  // digital write to turn on the LED
 
@@ -67,52 +71,13 @@ void setup() {
   pinMode(gps_trigger_pin, INPUT);  // set the GPS trigger pin as input
   attachInterrupt(digitalPinToInterrupt(gps_trigger_pin), gps_trigger, RISING);  // attach interrupt to GPS trigger pin
 
-  packet = (char*)malloc(packet_size);  // allocate memory for the packet
+  // packet = (char*)malloc(packet_size);  // allocate memory for the packet
 
-  Serial.begin(9600);  // for usb serial, for testing. can directly connect to PC
+  // Serial.begin(9600);  // for usb serial, for testing. can directly connect to PC
+  Serial.begin(115200);
 
-  serial_timer.begin(pulse, 100000);  // 100000 ns = 0.1ms = 10Hz
+  // serial_timer.begin(pulse, 100000);  // 100000 ns = 0.1ms = 10Hz
 }
-
-void pulse(){  // this function is called every 0.1ms = 10Hz, however we might not even need this if the computer is already synced with the GPS!!!!
-  // turn the LED on for 1 second at the beginning of each 10 second period
-  if(pulse_count == 0)
-    digitalWrite(LED_pin, HIGH);
-  else if(pulse_count == 10)
-   digitalWrite(LED_pin, LOW);
-
-  // build the time packet
-  memcpy(&packet[0], &header, sizeof(unsigned short));  // copy the header into the packet
-  memcpy(&packet[sizeof(unsigned short)], &time_since_boot_in_tenths_of_seconds, sizeof(unsigned int));  // copy the time into the packet
-  memcpy(&packet[sizeof(unsigned short) + sizeof(unsigned int)], &footer, sizeof(unsigned short));  // copy the footer into the packet
-  /*
-  packet[0] = reinterpret_cast<char*>(&header)[0];
-  packet[1] = reinterpret_cast<char*>(&header)[1];
-  packet[2] = reinterpret_cast<char*>(&time_since_boot_in_tenths_of_seconds)[0];
-  packet[3] = reinterpret_cast<char*>(&time_since_boot_in_tenths_of_seconds)[1];
-  packet[4] = 0x0d;//reinterpret_cast<char*>(&time_since_boot_in_tenths_of_seconds)[2];
-  packet[5] = 0x0a;//reinterpret_cast<char*>(&time_since_boot_in_tenths_of_seconds)[3];
-  packet[6] = reinterpret_cast<char*>(&footer)[0];
-  packet[7] = reinterpret_cast<char*>(&footer)[1];
-  */
-
-  // send the packet over USB
-  if(Serial)  // if the serial port is open
-    for(unsigned int i = 0; i < packet_size; i++)
-      Serial.write(packet[i]);
-
-  // update counters
-  time_since_boot_in_tenths_of_seconds++;
-  pulse_count++;
-  if(pulse_count == 100)
-    pulse_count = 0;
-}
-
-// uint8_t opposite_state(uint8_t s){  // not called?
-//   if(s == HIGH)
-//     return LOW;
-//   return HIGH;
-// }
 
 // if delayNanoseconds tries to sleep for too long there is some rollover internally and it doesn't sleep for the right amount of time
 void big_delay(int ns){
@@ -125,8 +90,6 @@ void big_delay(int ns){
     delayNanoseconds(remainder);
 }
 
-int period = 16666666;
-
 void trigger_stereo() {
   // Generate 6 pulses within each call at 60 Hz rate = 10 Hz
   for (int i = 0; i < 6; i++) {
@@ -134,32 +97,70 @@ void trigger_stereo() {
     delayNanoseconds(pulse_length);
     digitalWrite(output_pin1, LOW);
 
-    big_delay((period / 6 - pulse_length));
+    big_delay(period / 2 - pulse_length);
 
     digitalWrite(output_pin2, HIGH);
     delayNanoseconds(pulse_length);
     digitalWrite(output_pin2, LOW);
 
-    big_delay((period / 6 - pulse_length));
+    big_delay(period / 2 - pulse_length);
+    
+    Serial.print("Pulse ");
   }
+  Serial.print("\n");
 }
 
 // put your main code here, to run repeatedly:
-// void loop() {
+void loop() {
+  if (gps_triggered) {
+        noInterrupts(); // Disable interrupts while accessing shared data
+        gps_triggered = false; // Reset the flag
+        interrupts(); // Re-enable interrupts
 
-  // old loop to trigger two pins
+        // Calculate the time taken to trigger the GPS. We expect approxmately 1 sec betweeen triggers (PPS signal)
+        if (gps_first_trigger) {
+            gps_trigger_start_time = micros();
+            gps_first_trigger = false;
+        } else {
+            gps_trigger_end_time = micros();
+            
+            // redefine the period based on the time between GPS triggers
+            Serial.print("Old period: ");
+            Serial.print(period);
+            Serial.println(" ns");
 
-  // digitalWrite(output_pin1, HIGH);
-  // delayNanoseconds(pulse_length);  // 1.8 us pulse
-  // digitalWrite(output_pin1, LOW);
+            // calculate new period in nanoseconds
+            period = (gps_trigger_end_time - gps_trigger_start_time) * 1000 / 60;
+            Serial.print("New period: ");
+            Serial.print(period);
+            Serial.println(" ns");
 
-  // big_delay(period/2 - pulse_length);
+            gps_trigger_start_time = gps_trigger_end_time;
 
-  // digitalWrite(output_pin2, HIGH);
-  // delayNanoseconds(pulse_length);
-  // digitalWrite(output_pin2, LOW);
+            // end program if the period diverges too much, such as more than 10% from the expected value
+            if (period < 15000000 || period > 18000000) {
+                Serial.println("Period is out of bounds. Exiting program.");
+                while (1) {}
+            }
+        }
 
-  // big_delay(period/2 - pulse_length);
+        if (pulse_count == 0) {
+            digitalWrite(LED_pin, HIGH);
+            start_time = millis();
+        } else if (pulse_count == 10) {
+            digitalWrite(LED_pin, LOW);
+            Serial.print("Light was turned off after ");
+            Serial.print(millis() - start_time);
+            Serial.println(" ms.");
+        }
+
+        trigger_stereo();
+
+        pulse_count++;
+        if (pulse_count == 20)  // Reset the pulse count after 20 pulses (20 seconds)
+            pulse_count = 0;
+    }
+}
 
  /* working with 1 pin
   digitalWrite(output_pin1, HIGH);
@@ -171,5 +172,52 @@ void trigger_stereo() {
     delayNanoseconds(delay);
   delayNanoseconds(666666 - pulse_length);
 */
-// }
 
+
+/*
+void pulse(){  // this function is called every 0.1ms = 10Hz, however we might not even need this if the computer is already synced with the GPS!!!!
+  // turn the LED on for 1 second at the beginning of each 10 second period
+  if(pulse_count == 0)
+    digitalWrite(LED_pin, HIGH);
+  else if(pulse_count == 10)
+   digitalWrite(LED_pin, LOW);
+
+  // build the time packet
+  memcpy(&packet[0], &header, sizeof(unsigned short));  // copy the header into the packet
+  memcpy(&packet[sizeof(unsigned short)], &time_since_boot_in_tenths_of_seconds, sizeof(unsigned int));  // copy the time into the packet
+  memcpy(&packet[sizeof(unsigned short) + sizeof(unsigned int)], &footer, sizeof(unsigned short));  // copy the footer into the packet
+  */
+  /*
+  packet[0] = reinterpret_cast<char*>(&header)[0];
+  packet[1] = reinterpret_cast<char*>(&header)[1];
+  packet[2] = reinterpret_cast<char*>(&time_since_boot_in_tenths_of_seconds)[0];
+  packet[3] = reinterpret_cast<char*>(&time_since_boot_in_tenths_of_seconds)[1];
+  packet[4] = 0x0d;//reinterpret_cast<char*>(&time_since_boot_in_tenths_of_seconds)[2];
+  packet[5] = 0x0a;//reinterpret_cast<char*>(&time_since_boot_in_tenths_of_seconds)[3];
+  packet[6] = reinterpret_cast<char*>(&footer)[0];
+  packet[7] = reinterpret_cast<char*>(&footer)[1];
+  */
+
+  /*
+  // send the packet over USB
+  if(Serial)  // if the serial port is open
+    for(unsigned int i = 0; i < packet_size; i++)
+      Serial.write(packet[i]);
+
+  // update counters
+  time_since_boot_in_tenths_of_seconds++;
+  pulse_count++;
+  if(pulse_count == 100)
+    pulse_count = 0;
+
+  Serial.print("Sent packet: ");
+  Serial.print(time_since_boot_in_tenths_of_seconds);
+  Serial.print("\n");
+} */
+
+
+// uint8_t opposite_state(uint8_t s){  // not called?
+//   if(s == HIGH)
+//     return LOW;
+//   return HIGH;
+// }
