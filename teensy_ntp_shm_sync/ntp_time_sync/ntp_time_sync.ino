@@ -91,8 +91,8 @@ void big_delay(int ns){
 }
 
 void trigger_stereo() {
-  // Generate 6 pulses within each call at 60 Hz rate = 10 Hz
-  for (int i = 0; i < 6; i++) {
+  // Generate 60 pulses within each call at 60 Hz rate = 1 Hz
+  for (int i = 0; i < 60; i++) {
     digitalWrite(output_pin1, HIGH);
     delayNanoseconds(pulse_length);
     digitalWrite(output_pin1, LOW);
@@ -105,7 +105,11 @@ void trigger_stereo() {
 
     big_delay(period / 2 - pulse_length);
     
-    Serial.print("Pulse ");
+    // Print pulse message every 10 pulses:
+    if (i % 10 == 0) {
+      Serial.print("Pulse ");
+      Serial.println(i);
+    }
   }
   Serial.print("\n");
 }
