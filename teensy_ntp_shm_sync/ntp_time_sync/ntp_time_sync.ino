@@ -68,7 +68,7 @@ void loop() {
     high_start = now;
 
     digitalWrite(output_pin1, HIGH);
-    digitalWrite(output_pin2, HIGH);
+    //digitalWrite(output_pin2, HIGH);
 
     last_trigger_count = trigger_count;
 
@@ -87,7 +87,7 @@ void loop() {
   if (now - high_start > pulse_width) {
     // set pin low
     digitalWrite(output_pin1, LOW);
-    digitalWrite(output_pin2, LOW);
+    //digitalWrite(output_pin2, LOW);
   }
 
   if (trigger_count > 100) {
