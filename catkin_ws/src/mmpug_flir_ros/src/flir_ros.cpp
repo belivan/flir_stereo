@@ -111,15 +111,20 @@ void FlirRos::onInit() {
   });
 }
 
+
 bool FlirRos::set_format(int fd, bool raw) {
   struct v4l2_format format;
   CLEAR(format);
   format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
+  // Anton added new format support because previous ones did not seem to work!
+  // It doesn't seem to be the format lets try adjust width and height. Nope...
   if (raw) {
     format.fmt.pix.pixelformat = V4L2_PIX_FMT_Y16;  // Y16
+    // format.fmt.pix.pixelformat = V4L2_PIX_FMT_YUV420;  // YU12
   } else {
     format.fmt.pix.pixelformat = V4L2_PIX_FMT_YUV420;  // YU12
+    // format.fmt.pix.pixelformat = V4L2_PIX_FMT_NV12;  // NV12
   }
 
   format.fmt.pix.width = width;
@@ -134,6 +139,7 @@ bool FlirRos::set_format(int fd, bool raw) {
 
   return true;
 }
+
 
 bool FlirRos::request_buffers(int fd) {
   struct v4l2_requestbuffers req;
