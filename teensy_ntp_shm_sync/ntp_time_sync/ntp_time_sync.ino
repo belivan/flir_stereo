@@ -1,10 +1,11 @@
-const int LED_pin = 13;  // LED output,  for testing
+const int LED_pin = 13;  // LED output, for testing
 int output_pin1 = 6;
 int output_pin2 = 7;
 
 // GPS
 int gps_trigger_pin = 8;  // GPS trigger input pin
 unsigned long gps_time = 0;
+unsigned long last_gps_time = 0;
 volatile bool gps_triggered = false;  // flag to indicate GPS trigger
 
 void gps_trigger() {
@@ -38,16 +39,48 @@ int gps_trigger_count = 0;
 
 bool wait_signal_flag = true;
 
+bool first_gps_trigger = true;
+
+// PD Control variables
+float Kp = 1.0;  // Proportional gain
+float Kd = 0.1;  // Derivative gain
+float last_error = 0;
+float pd_correction = 0;
+
 void loop() {
   now = micros();
   if (gps_triggered) {
+    // Set/reset initial variables for each GPS trigger
     gps_trigger_count++;
     gps_triggered = false;
     wait_signal_flag = false;
 
+    Serial.print("Last sensor trigger count (60): ");
+    Serial.println(last_trigger_count);
+
     trigger_count = -1;
     last_trigger_count = -1;
     high_start = -1;
+
+    if (!first_gps_trigger) {
+      // Calculate error and derivative
+      float error = (gps_time - last_gps_time) - (one_sixtieth * 60);
+      float derivative = error - last_error;
+      
+      // PD correction
+      pd_correction = (Kp * error) + (Kd * derivative);
+      one_sixtieth += pd_correction;
+
+      Serial.print("PD Correction: ");
+      Serial.print(pd_correction);
+      Serial.print(" Adjusted one_sixtieth to ");
+      Serial.print(one_sixtieth);
+      Serial.println(" us");
+
+      last_error = error;
+    }
+
+    last_gps_time = gps_time;
 
     Serial.print("GPS trigger at ");
     Serial.print(gps_time);
@@ -58,13 +91,19 @@ void loop() {
     } else {
       digitalWrite(LED_pin, LOW);
     }
+
+    if (first_gps_trigger) {
+      first_gps_trigger = false;
+    }
   }
+
+  // Calculate trigger count based on elapsed time since last GPS pulse
   if (gps_time != 0 && !wait_signal_flag) {
     trigger_count = (now - gps_time) / one_sixtieth;
   }
 
   if (trigger_count != last_trigger_count) {
-    // set pin high
+    // Set pin high
     high_start = now;
 
     digitalWrite(output_pin1, HIGH);
@@ -79,13 +118,9 @@ void loop() {
       Serial.print(now);
       Serial.println(" us");
     }
-
-    if (trigger_count > 60) {
-      Serial.println("CROSSED 60 TRIGGERS!");
-    }
   }
   if (now - high_start > pulse_width) {
-    // set pin low
+    // Set pin low
     digitalWrite(output_pin1, LOW);
     //digitalWrite(output_pin2, LOW);
   }
