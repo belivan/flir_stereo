@@ -42,8 +42,8 @@ bool wait_signal_flag = true;
 bool first_gps_trigger = true;
 
 // PD Control variables
-float Kp = 0.01;  // Proportional gain
-float Kd = 0.001;  // Derivative gain
+float Kp = -0.01;  // Proportional gain
+float Kd = -0.001;  // Derivative gain
 float last_error = 0;
 float pd_correction = 0;
 
