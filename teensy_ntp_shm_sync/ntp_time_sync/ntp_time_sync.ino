@@ -50,10 +50,13 @@ float pd_correction = 0;
 void loop() {
   now = micros();
   unsigned long diff = gps_time - last_gps_time;  // should be around 1 sec = 1,000,000 us
-  Serial.print("Diff: ");
-  Serial.println(diff);
 
-  if (gps_triggered && diff > 900000 && diff < 1100000) {
+  if (gps_triggered) {//  && diff > 900000 && diff < 1100000) {
+
+    Serial.print("Diff: ");
+    Serial.println(diff);
+
+
     // Set/reset initial variables for each GPS trigger
     gps_trigger_count++;
     gps_triggered = false;
@@ -66,23 +69,23 @@ void loop() {
     last_trigger_count = 0;
     high_start = -1;
 
-    // if (!first_gps_trigger && gps_trigger_count > 30) {
-    //   // Calculate error and derivative
-    //   float error = (gps_time - last_gps_time) - (one_sixtieth * 60);
-    //   float derivative = error - last_error;
+    if (!first_gps_trigger && gps_trigger_count > 15) {
+      // Calculate error and derivative
+      float error = (gps_time - last_gps_time) - (one_sixtieth * 60);
+      float derivative = error - last_error;
       
-    //   // PD correction
-    //   pd_correction = (Kp * error) + (Kd * derivative);
-    //   one_sixtieth += pd_correction;
+      // PD correction
+      pd_correction = (Kp * error) + (Kd * derivative);
+      one_sixtieth += pd_correction;
 
-    //   Serial.print("PD Correction: ");
-    //   Serial.print(pd_correction);
-    //   Serial.print(" Adjusted one_sixtieth to ");
-    //   Serial.print(one_sixtieth);
-    //   Serial.println(" us");
+      Serial.print("PD Correction: ");
+      Serial.print(pd_correction);
+      Serial.print(" Adjusted one_sixtieth to ");
+      Serial.print(one_sixtieth);
+      Serial.println(" us");
 
-    //   last_error = error;
-    // }
+      last_error = error;
+    }
 
     last_gps_time = gps_time;
 
@@ -134,6 +137,6 @@ void loop() {
 
   if (trigger_count > 100) {
     wait_signal_flag = true;
-    Serial.print("WAIT FLAG ACTIVATED!!!!");
+    Serial.println("WAIT FLAG ACTIVATED!!!!");
   }
 }
