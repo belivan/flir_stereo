@@ -1,4 +1,4 @@
-#include "../include/flir_ros.h"
+#include "../include/flir_ros_sync.h"
 #include <asm/types.h>
 #include <fcntl.h>
 #include <pluginlib/class_list_macros.h>
@@ -8,10 +8,7 @@
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <chrono>
-#include <opencv2/opencv.hpp>
-
-#include <common/image_transport.h>
-#include <cv_bridge/cv_bridge.h>
+#include "rawBoson.h"
 
 // https://linuxtv.org/downloads/v4l-dvb-apis/uapi/v4l/capture.c.html
 // http://jwhsmith.net/2014/12/capturing-a-webcam-stream-using-v4l2/
@@ -19,23 +16,22 @@
 #define CHECK_FATAL(x, err)    \
   if ((x)) {                   \
     NODELET_FATAL_STREAM(err); \
-    stream.store(false);       \
     return;                    \
   }
 
-PLUGINLIB_EXPORT_CLASS(flir_ros::FlirRos, nodelet::Nodelet)
+PLUGINLIB_EXPORT_CLASS(flir_ros_sync::FlirRos, nodelet::Nodelet)
 
-namespace flir_ros {
+namespace flir_ros_sync {
 void FlirRos::onInit() {
   NODELET_INFO("Initializing flir ros node");
 
   // get ros node handle
   nh = getNodeHandle();
   private_nh = getPrivateNodeHandle();
-  get_ros_param();  // get the ros paramters from launch file
 
-  timer.set_name(getName());
-  timer.tic("init_camera");
+  std::string device_name;
+  private_nh.getParam("device_name", device_name);
+  get_ros_param();  // get the ros paramters from launch file
 
   // 1. Try to open the device
   fd.reset(open(device_name.c_str(), O_RDWR));
@@ -50,9 +46,30 @@ void FlirRos::onInit() {
               "Device can't stream video!");
 
   // 3. Set the device format (default is raw)
+  private_nh.param("publish_image_sharing_every_n", publish_image_sharing_every_n, publish_image_sharing_every_n);
   private_nh.param("raw", raw, raw);
   CHECK_FATAL(!set_format(fd, raw), "Unable to set video format!");
+  
+  private_nh.param("gain_mode", gain_mode, gain_mode);
+  private_nh.param("ffc_mode", ffc_mode, ffc_mode);
+  private_nh.param("sync_mode", sync_mode, sync_mode);
+  bool set_config = false;
+  private_nh.param("set_config", set_config, set_config);
 
+  if(set_config){
+    std::cout << "SETTING PARAMS FOR BOTH FLIRS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
+    set_gain_mode(gain_mode);
+    set_ffc_mode(ffc_mode);
+    set_sync_mode(sync_mode, 1);
+    set_sync_mode(sync_mode, 2);
+
+    camera_num = 0;
+  }
+  else
+    camera_num = 1;
+
+  ros::Duration(5.).sleep();
+  
   // 4. Initialize the buffers (mmap)
   CHECK_FATAL(!request_buffers(fd), "Requesting buffers failed!");
 
@@ -62,69 +79,56 @@ void FlirRos::onInit() {
   NODELET_INFO("Ready to start streaming camera!");
   stream = true;
 
-  timer.toc("init_camera");
-
   // 6. Set up ROS publishers, now that we're confident we can stream.
   setup_ros();
 
   stream_thread = std::thread([&]() {
-    timer.tic("thread_init");
     NODELET_INFO("Starting thread!");
     struct v4l2_buffer bufferinfo;
     CLEAR(bufferinfo);
     bufferinfo.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     bufferinfo.memory = V4L2_MEMORY_MMAP;
     bufferinfo.index = 0;
-    timer.toc("thread_init");
 
     while (stream.load()) {
-      thread_start = ros::Time::now();
-      timer.tic("queue");
       if (ioctl(fd, VIDIOC_QBUF, &bufferinfo) < 0) {
         NODELET_INFO("Couldn't queue :(");
         NODELET_INFO_STREAM("Error: " << std::string(strerror(errno)));
         break;  // Couldn't queue anymore
       }
-      timer.toc("queue");
 
-      timer.tic("dequeue");
       if (ioctl(fd, VIDIOC_DQBUF, &bufferinfo) < 0) {
         NODELET_INFO("Couldn't dequeue :(");
         NODELET_INFO_STREAM("Error: " << std::string(strerror(errno)));
         break;  // Couldn't de-queue
       }
-      timer.toc("dequeue");
 
-      if (++count != send_every_n) {
-        continue;
-      }
-      count = 0;
-
-      timer.tic("publish_frame");
       // TODO(vasua): Publish diagnostic msgs here.
-      ros::Time time = ros::Time::now();
-      publish_frame(bufferinfo.bytesused, time);
-      publish_transforms(time);
-      timer.toc("publish_frame");
-      NODELET_INFO_STREAM_THROTTLE(2 , "Loop Time: " << (ros::Time::now() - thread_start).toSec());
+
+        count=count+1;
+      if(count%send_every_n==0)
+      { 
+        ros::Time frame_time;
+        get_frame_time(frame_time);
+        publish_frame(bufferinfo.bytesused, frame_time);
+        count=0;
+        // publish tf for every frame
+        publish_transforms(frame_time);
+      }
+      
     }
   });
 }
-
 
 bool FlirRos::set_format(int fd, bool raw) {
   struct v4l2_format format;
   CLEAR(format);
   format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
-  // Anton added new format support because previous ones did not seem to work!
-  // It doesn't seem to be the format lets try adjust width and height. Nope...
   if (raw) {
     format.fmt.pix.pixelformat = V4L2_PIX_FMT_Y16;  // Y16
-    // format.fmt.pix.pixelformat = V4L2_PIX_FMT_YUV420;  // YU12
   } else {
     format.fmt.pix.pixelformat = V4L2_PIX_FMT_YUV420;  // YU12
-    // format.fmt.pix.pixelformat = V4L2_PIX_FMT_NV12;  // NV12
   }
 
   format.fmt.pix.width = width;
@@ -139,7 +143,6 @@ bool FlirRos::set_format(int fd, bool raw) {
 
   return true;
 }
-
 
 bool FlirRos::request_buffers(int fd) {
   struct v4l2_requestbuffers req;
@@ -204,23 +207,12 @@ void FlirRos::setup_ros_names() {
 }
 
 void FlirRos::get_ros_param() {
-  auto params =
-      std::make_tuple(std::make_pair("device_name", std::ref(device_name)),
-                      std::make_pair("camera_name", std::ref(camera_name)),
-                      std::make_pair("intrinsic_url", std::ref(intrinsic_url)),
-                      std::make_pair("width", std::ref(width)),
-                      std::make_pair("height", std::ref(height)),
-                      std::make_pair("send_every_n", std::ref(send_every_n)));
-
-  auto load_param = [&](const auto& t) {
-    CHECK_FATAL(!private_nh.hasParam(t.first),
-                "Required param" << t.first << " not found!");
-    private_nh.getParam(t.first, t.second);
-    ROS_INFO_STREAM("Param " << t.first << ": " << t.second);
-  };
-
-  // https://stackoverflow.com/a/54053084
-  std::apply([&](auto&&... args) { (load_param(args), ...); }, params);
+  private_nh.getParam("camera_name", camera_name);
+  private_nh.getParam("intrinsic_url", intrinsic_url);
+  private_nh.getParam("width", width);
+  private_nh.getParam("height", height);
+  private_nh.getParam("use_ext_sync", use_ext_sync);
+  private_nh.getParam("send_every_n",send_every_n);
 }
 
 void FlirRos::setup_ros() {
@@ -237,6 +229,9 @@ void FlirRos::setup_ros() {
   object_detection::disable_transports(&nh, rect_topic_name);
   image_pub = it->advertiseCamera(camera_topic_name, 1);
   rect_image_pub = it->advertise(rect_topic_name, 1);
+  std::vector<std::string> topic_names;
+  topic_names.push_back("nv_thermal_image");
+  //nv_image_pub = new nv2ros::Publisher(nh, topic_names);
 }
 
 sensor_msgs::ImagePtr FlirRos::rectify_image(
@@ -249,18 +244,32 @@ sensor_msgs::ImagePtr FlirRos::rectify_image(
   cv::Mat rect_image;
 
   // rectify the image
-  try {
-    cam_model.rectifyImage(image, rect_image, CV_INTER_LINEAR);
-  } catch (const image_geometry::Exception& e) {
-    ROS_WARN_STREAM("Exception when rectifying: " << e.what());
-    return nullptr;
-  }
+  cam_model.rectifyImage(image, rect_image, CV_INTER_LINEAR);
 
   // publish the rectified image
   sensor_msgs::ImagePtr rect_msg =
       cv_bridge::CvImage(image_msg->header, image_msg->encoding, rect_image)
           .toImageMsg();
   return rect_msg;
+}
+
+void FlirRos::get_frame_time(ros::Time &frame_time) {
+  if (use_ext_sync) {
+    timespec systemtime;
+    clock_gettime(CLOCK_REALTIME, &systemtime);
+    // take the 1/60s second since we are trigger the camera at 60hz
+    // and the trigger is aligned with system time (CLOCK_REALTIME)  
+    uint32_t one_sixtieth_nsec = 16666667;
+    time_t system_sec = systemtime.tv_sec;
+    time_t system_nsec = systemtime.tv_nsec;
+    uint32_t trigger_nsec = uint32_t{system_nsec} - 
+	                    (uint32_t{system_nsec} % one_sixtieth_nsec);
+    if(camera_num == 1)
+      trigger_nsec += one_sixtieth_nsec/2;
+    frame_time = ros::Time(uint32_t{system_sec}, uint32_t{trigger_nsec});
+  } else {
+    frame_time = ros::Time::now();
+  }
 }
 
 void FlirRos::publish_frame(uint32_t bytes_used, ros::Time time) {
@@ -283,6 +292,50 @@ void FlirRos::publish_frame(uint32_t bytes_used, ros::Time time) {
     img->data.insert(img->data.begin(), reinterpret_cast<char*>(buffer),
                      reinterpret_cast<char*>(buffer) + bytes_used);
 
+    /*if(publish_image_sharing_every_n < 1000){
+      static nv2ros::NvImageMessage nv_image_message(width, height, time);
+      static float prev_p_min = 100000;
+      static float prev_p_max = 0;
+      static int count = 0;
+      count++;
+      if(count == publish_image_sharing_every_n){
+	count = 0;
+	
+	int pitch = nv_image_message.get_pitch();
+	void* data;
+	nv_image_message.mem_map(&data);
+	nv_image_message.mem_sync_for_cpu(&data);
+
+	uint16_t* image_pixels = (uint16_t*)buffer;
+	float p_min = 1000000000.f;
+	float p_max = 0;
+	for(int w = 0; w < width; w++){
+	  for(int h = 0; h < height; h++){
+	    float p = image_pixels[h*width + w];
+	    p_min = std::min(p, p_min);
+	    p_max = std::max(p, p_max);
+	    p = (p - prev_p_min)/std::max(prev_p_max - prev_p_min, 0.00001f);
+	    p = std::max(0.f, std::min(1.f, p));
+	    uint8_t p_int = p*255.f;
+	  
+	    ((uint8_t*)(data))[h*pitch + w*4] = p_int;
+	    ((uint8_t*)(data))[h*pitch + w*4 + 1] = p_int;
+	    ((uint8_t*)(data))[h*pitch + w*4 + 2] = p_int;
+	    ((uint8_t*)(data))[h*pitch + w*4 + 3] = 255;
+	  }
+	}
+	prev_p_min = p_min;
+	prev_p_max = p_max;
+	//ROS_INFO_STREAM("min max: " << p_min << " " << p_max);
+      
+	nv_image_message.mem_sync_for_device(&data);
+	nv_image_message.mem_unmap(&data);
+
+	nv_image_message.set_stamp(time);
+	nv_image_pub->publish(nv_image_message);
+      }
+      }*/
+
   } else {  // Use opencv to convert from YUV420 to RGB
     // There might be a way to get rid of the initialization done inside
     // resize() if we're clever, but probably not necessary.
@@ -296,35 +349,16 @@ void FlirRos::publish_frame(uint32_t bytes_used, ros::Time time) {
     // so that we don't have any unnecessary copies.
     cv::Mat luma(luma_height, luma_width, CV_8UC1, buffer);
     cv::Mat rgb(height, width, CV_8UC3, &img->data[0]);
-
-    // TODO(vasua): Make this conversion function run on GPU.
-    // This function, when running at 60 hz on 2 cameras, takes upwards of 100%
-    // CPU on the Xavier. Without this function (assuming the compiler isn't
-    // being _really_ smart, CPU usage is basically 0. This should be a
-    // relatively cheap operation to do on GPU as it's embarassingly parallel,
-    // and GPUs are considerably better at float operations.
-    timer.tic("cvtcolor");
     cv::cvtColor(luma, rgb, cv::COLOR_YUV2RGB_I420);
-    timer.toc("cvtcolor");
 
     img->step = width * bytes_per_pixel;
     img->encoding = sensor_msgs::image_encodings::RGB8;
   }
-
-  // Publish normal and rectified images if subscribed
-  object_detection::publish_if_subscribed(image_pub, img, cam_info_ptr);
-  if (rect_image_pub.getNumSubscribers() > 0) {
-    timer.tic("rectify");
-    // TODO(vasua): Make rectification faster too?
-    // Rectification also isn't cheap, but this might be a harder one to do on
-    // the GPU. Maybe we can log the non-rectified images at full frame rate,
-    // and only rectify images that get used elsewhere?
-    const auto rect_msg = rectify_image(img, cam_info_ptr);
-    if (rect_msg != nullptr) {
-      object_detection::publish_if_subscribed(rect_image_pub, rect_msg);
-    }
-    timer.toc("rectify");
-  }
+  // publish raw image
+  image_pub.publish(img, cam_info_ptr);
+  // rectify and publish rectified image
+  // sensor_msgs::ImagePtr rect_msg = rectify_image(img, cam_info_ptr);
+  // rect_image_pub.publish(rect_msg);
 }
 
 void FlirRos::publish_transform(const ros::Time& time, const tf::Vector3& trans,
@@ -370,4 +404,4 @@ FlirRos::~FlirRos() {
   //     munmap(buffer, buffer_length);
   // }
 }
-}  // namespace flir_ros
+}  // namespace flir_ros_sync

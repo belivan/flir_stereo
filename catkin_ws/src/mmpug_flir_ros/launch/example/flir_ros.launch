@@ -1,0 +1,35 @@
+<launch>
+  <arg name="camera_name" default="thermal"/>
+
+  <node pkg="nodelet" type="nodelet" name="flir_nodelet_manager"  args="manager" 
+    output="screen"/>
+
+  <node pkg="nodelet" type="nodelet" name="flir_nodelet" 
+    args="load flir_ros_sync/FlirRos flir_nodelet_manager" output="screen">
+        <param name="device_name" value="/dev/flir_boson_video"/>
+        <param name="raw" value="true" type="bool" />
+        <param name="publish_image_sharing_every_n" value="2" type="int" />
+        <param name="send_every_n" value="2" type="int" />
+
+        <param name="use_ext_sync" value="1" type="int" />
+
+        <param name="width" value="640" type="int"/>
+        <param name="height" value="512" type="int"/>
+
+        <param name="camera_name" value="$(arg camera_name)"/>
+        <param name="intrinsic_url" value="package://flir_ros_sync/data/camera_info/example/thermal_caminfo_flir_640.yaml"/>
+        <remap from="/set_camera_info" to="$(arg camera_name)/set_camera_info"/>
+  </node>
+
+
+  
+  <arg name="ip" default="10.3.1.203" />
+  <arg name="port" default="5000" />
+  
+  <node name="to_gstreamer_stream" pkg="image_sharing" type="to_gstreamer" output="screen">
+  	<param name="topic" value="nv_thermal_image" />
+  	<param name="launch_string"
+         value="appsrc name=mysource ! video/x-raw(memory:NVMM),width=320,height=256,framerate=30/1,format=RGBA ! nvvidconv ! nvv4l2h264enc speed-preset=superfast tune=zerolatency insert-sps-pps=1 idrinterval=30 maxperf-enable=1 ! h264parse ! rtph264pay ! udpsink host=$(arg ip) port=$(arg port)" />
+  </node>
+
+</launch>

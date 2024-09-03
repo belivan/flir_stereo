@@ -1,8 +1,8 @@
 cmake_minimum_required(VERSION 2.8.3)
-project(flir_ros)
+project(flir_ros_sync)
 
 ## Compile as C++11, supported in ROS Kinetic and newer
-add_compile_options(-std=c++17)
+add_compile_options(-std=c++11)
 # add_compile_options(-fsanitize=address)
 set(CMAKE_EXPORT_COMPILE_COMMANDS ON)
 
@@ -17,8 +17,8 @@ find_package(catkin REQUIRED COMPONENTS
     image_transport
     camera_info_manager
     tf
-    common
     image_geometry
+    #image_sharing
     )
 
 # set(OpenCV_DIR "~/Downloads/OpenCV/build")
@@ -134,8 +134,13 @@ include_directories(
 
 ## Declare a C++ library
 add_library(${PROJECT_NAME}
-  include/flir_ros.h
-  src/flir_ros.cpp
+  include/flir_ros_sync.h
+  include/fd_guard.h
+  include/image_transport.h
+  src/flir_ros_sync.cpp
+  src/rawBoson.cpp
+  src/bytes.cpp
+  src/serial.cpp
 )
 
 ## Add cmake target dependencies of the library

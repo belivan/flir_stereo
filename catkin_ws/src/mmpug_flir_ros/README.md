@@ -3,6 +3,8 @@
 This package provides a custom ROS driver for the FLIR Boson camera. Currently,
 it is able to switch between raw and colorized video.
 
+This FLIR ROS driver also has time synchronization with Nvidia Jetson Xavier.
+
 ## Installation
 
 1. Make sure you have OpenCV installed, with sources. I do a source build of
@@ -50,6 +52,10 @@ numbers by running the following command:
 And pass in the appropiate path to the driver. Then, put in reasonable ros 
 parameters in the launch file for each camera just like `flir_ros.launch`. See 
 `multiple_flir_ros.launch` as an example.
+
+## Time Synchronization
+This packages assumes that the camera is being trigger by a 60 hz pulse that 
+aligns with system time.
 
 ## Offline image rectification
 1. For data without rectified and camera info, use the 

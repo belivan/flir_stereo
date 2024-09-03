@@ -1,8 +1,7 @@
-#ifndef FLIR_ROS_H
-#define FLIR_ROS_H
+#ifndef FLIR_ROS_SYNC_H
+#define FLIR_ROS_SYNC_H
 
-#include <common/fd_guard.h>
-#include <common/timer.h>
+#include "./fd_guard.h"
 #include <linux/videodev2.h>
 #include <nodelet/nodelet.h>
 #include <ros/ros.h>
@@ -13,8 +12,16 @@
 #include <image_geometry/pinhole_camera_model.h>
 #include <image_transport/image_transport.h>
 #include <tf/transform_broadcaster.h>
+#include <ctime>
 
-namespace flir_ros {
+#include <opencv2/opencv.hpp>
+
+#include "../include/image_transport.h"
+#include <cv_bridge/cv_bridge.h>
+
+//#include <image_sharing/image_sharing.h>
+
+namespace flir_ros_sync {
 
 class FlirRos : public nodelet::Nodelet {
  public:
@@ -37,16 +44,29 @@ class FlirRos : public nodelet::Nodelet {
   sensor_msgs::ImagePtr rectify_image(
       const sensor_msgs::ImageConstPtr& image_msg,
       const sensor_msgs::CameraInfoConstPtr& camera_info_ptr);
+  void get_frame_time(ros::Time& frame_time);
 
-  std::string device_name;
   object_detection::fd_guard fd;
   bool raw = true;
+  int publish_image_sharing_every_n = 1000;
   int width = 640;   // use default if no param were given
   int height = 512;  // use default if no param were given
+  int send_every_n=1;
+  int count=0;
   void* buffer = nullptr;
+
+  int camera_num;
+
+  // flir parameters
+  int gain_mode = 2;
+  int ffc_mode = 1;
+  int sync_mode = 0;
 
   ros::NodeHandle nh;
   ros::NodeHandle private_nh;
+
+  // external trigger set
+  int use_ext_sync = 1;
 
   // camera name and frame id
   std::string camera_name;
@@ -59,6 +79,7 @@ class FlirRos : public nodelet::Nodelet {
   std::unique_ptr<image_transport::ImageTransport> it;
   image_transport::CameraPublisher image_pub;
   image_transport::Publisher rect_image_pub;
+  //nv2ros::Publisher* nv_image_pub;
   std::string intrinsic_url;
 
   // camera intrinsics info
@@ -72,18 +93,8 @@ class FlirRos : public nodelet::Nodelet {
 
   std::atomic_bool stream{false};
   std::thread stream_thread;
-
-  // This will only send 1 of N frames to get read. Count starts at 0 and allows
-  // N-1 frames to get skipped before sending the first one to allow for any
-  // sort of initialization the camera needs to do.
-  int send_every_n = 1;
-  int count = 0;
-
-  ros::Time thread_start;
-
-  object_detection::ThreadsafeTimer timer;
 };
 
-}  // namespace flir_ros
+}  // namespace flir_ros_sync
 
-#endif  // FLIR_ROS_H
+#endif  // FLIR_ROS_SYNC_H
