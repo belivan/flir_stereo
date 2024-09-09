@@ -743,8 +743,9 @@ public:
     //   test(argc, argv, device);
     if (device == -1)
     {
-      test(argc, argv, "FLIR_Boson_322011");
-      test(argc, argv, "FLIR_Boson_322008");
+      // TODO: ASSIGN MANUALY ID TO EACH CAMERA
+      test(argc, argv, "FLIR_Boson_322011");  // 322011
+      test(argc, argv, "FLIR_Boson_322008");  // 322008
     }
     else
       throw std::runtime_error("NON-STEREO CAMERA NOT SUPPORTED");
