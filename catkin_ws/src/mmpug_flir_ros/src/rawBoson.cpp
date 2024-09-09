@@ -745,14 +745,23 @@ public:
     // }
     // else
     //   test(argc, argv, device);
+    // if (device == -1)
+    // {
+    //   throw std::runtime_error("ERROR: DEVICE/NON-STEREO CAMERA NOT SUPPORTED");
+    // }
+    // TODO: ASSIGN MANUALY ID TO EACH CAMERA
     if (device == -1)
     {
-      // TODO: ASSIGN MANUALY ID TO EACH CAMERA
-      test(argc, argv, "FLIR_Boson_322011");  // 322011
       test(argc, argv, "FLIR_Boson_322008");  // 322008
+      test(argc, argv, "FLIR_Boson_322011");  // 322011
     }
+    else if (device == 1)
+      test(argc, argv, "FLIR_Boson_322008");  // 322008
+      
+    else if (device == 2)
+      test(argc, argv, "FLIR_Boson_322011");  // 322011
     else
-      throw std::runtime_error("NON-STEREO CAMERA NOT SUPPORTED");
+      throw std::runtime_error("ERROR: DEVICE/NON-STEREO CAMERA NOT SUPPORTED");
 }
 };
 

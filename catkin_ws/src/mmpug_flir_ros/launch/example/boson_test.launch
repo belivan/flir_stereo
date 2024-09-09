@@ -2,11 +2,11 @@
   <arg name="camera_name" default="thermal"/>
 
   <node pkg="nodelet" type="nodelet" name="flir_nodelet_manager"  args="manager" 
-    output="screen"/>
+    output="screen" />
 
   <node pkg="nodelet" type="nodelet" name="flir_nodelet1" 
-    args="load flir_ros_sync/FlirRos flir_nodelet_manager" output="screen">
-        <param name="device_name" value="/dev/video0"/>
+    args="load flir_ros_sync/FlirRos flir_nodelet_manager" output="screen" >
+        <param name="device_name" value="/dev/flir_boson_video_322008"/>
         <param name="raw" value="true" type="bool" />
         <param name="publish_image_sharing_every_n" value="2" type="int" />
         <param name="send_every_n" value="1" type="int" />
@@ -34,7 +34,7 @@
 
   <node pkg="nodelet" type="nodelet" name="flir_nodelet2" 
     args="load flir_ros_sync/FlirRos flir_nodelet_manager" output="screen">
-        <param name="device_name" value="/dev/video2"/>
+        <param name="device_name" value="/dev/flir_boson_video_322011"/>
         <param name="raw" value="true" type="bool" />
         <param name="publish_image_sharing_every_n" value="2" type="int" />
         <param name="send_every_n" value="1" type="int" />

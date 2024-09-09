@@ -58,9 +58,13 @@ void FlirRos::onInit() {
 
   if(set_config){
     std::cout << "SETTING PARAMS FOR BOTH FLIRS!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!" << std::endl;
+    printf("Setting gain mode\n");
     set_gain_mode(gain_mode);
+    printf("Setting ffc mode\n");
     set_ffc_mode(ffc_mode);
+    printf("Setting sync mode for device 1\n");
     set_sync_mode(sync_mode, 1);
+    printf("Setting sync mode for device 2\n");
     set_sync_mode(sync_mode, 2);
 
     camera_num = 0;
