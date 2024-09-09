@@ -383,7 +383,7 @@ void Boson_BitStuffing() {
   // Don't include START and END of frame in bitsuffing
   boson_stuffed_package[0]=aux_boson_package[j++];
   // Search for bytes to be sttuffed
-  for(i=1; i<aux_boson_package_len-1 ; i++) {
+  for(i=1; i<aux_boson_package_len-1; i++) {
     switch (aux_boson_package[i]) {
       case 0x8E:
         boson_stuffed_package[j++]=0x9E;
@@ -479,7 +479,11 @@ std::string FindDeviceBySerial(const std::string& serial_id_substr) {
     for (const auto& entry : fs::directory_iterator(base_path)) {
         std::string name = entry.path().filename().string();
         if (name.find(serial_id_substr) != std::string::npos) {
-            return fs::canonical(entry.path()).string();
+            fs::path resolved_path = fs::canonical(entry.path());
+            // Make sure the target is a TTY ACM device
+            if (resolved_path.string().find("/dev/ttyACM") != std::string::npos){
+                return resolved_path.string();
+            }
         }
     }
 
