@@ -6,6 +6,10 @@
 #include <cstdarg>
 #include <iostream>
 
+// Added by Anton to see Boson camera ID and assign appropriate ACM port
+#include <boost/filesystem.hpp>
+namespace fs = boost::filesystem;
+
 #define SERIAL_TIMEOUT 500
 
 class RawBoson {
@@ -464,10 +468,29 @@ void Boson_Status_Error_Codes(int code) {
   }
 }
 
+// Function to find the ACM port of the Boson camera
+std::string FindDeviceBySerial(const std::string& serial_id_substr) {
+    fs::path base_path("/dev/serial/by-id/");
+
+    if (!fs::exists(base_path) || !fs::is_directory(base_path)) {
+        throw std::runtime_error("Could not open directory: " + base_path.string());
+    }
+
+    for (const auto& entry : fs::directory_iterator(base_path)) {
+        std::string name = entry.path().filename().string();
+        if (name.find(serial_id_substr) != std::string::npos) {
+            return fs::canonical(entry.path()).string();
+        }
+    }
+
+    throw std::runtime_error("Device with serial ID substring " + serial_id_substr + " not found.");
+}
+
 //------------------------------------------------------
 // Entry point to the program. Read arguments and
 // run the Function to make the Boson Package.
-  int test(int argc, char **argv, int acm) {
+  // int test(int argc, char **argv, int acm) {
+  int test(int argc, char **argv, std::string serial_id_substr) {
   // Serial Port variables
   char puerto_str[80];            // We give up to 30 chars to put the path
   char baudios_str[10];           // Max size is 921600 ... so we give margin
@@ -486,16 +509,20 @@ void Boson_Status_Error_Codes(int code) {
   int  aux_data;
 
   // Default BOSON values
-  if(acm == 0)
-    strcpy(puerto_str,"/dev/ttyACM0");
-  else if(acm == 1)
-    strcpy(puerto_str,"/dev/ttyACM1");
-  else if(acm == 2)
-    strcpy(puerto_str,"/dev/ttyACM2");
-  else{
-    std::cout << "ACM " << acm << " not supported! exiting..." << std::endl;
-    exit(1);
-  }
+  // if(acm == 0)
+  //   strcpy(puerto_str,"/dev/ttyACM0");
+  // else if(acm == 1)
+  //   strcpy(puerto_str,"/dev/ttyACM1");
+  // else if(acm == 2)
+  //   strcpy(puerto_str,"/dev/ttyACM2");
+  // else{
+  //   std::cout << "ACM " << acm << " not supported! exiting..." << std::endl;
+  //   exit(1);
+  // }
+  // Adding a new way to assign the ACM port to avoid hardcoding
+  std::string acm_port = FindDeviceBySerial(serial_id_substr);
+  strcpy(puerto_str, acm_port.c_str());
+
   baudios=921600;
 
   // Check that are line arguments
@@ -707,13 +734,20 @@ void Boson_Status_Error_Codes(int code) {
 }
 public:
   RawBoson(int argc, char** argv, int device=-1){
-    if(device == -1){
-      //test(argc, argv, 0);
-      test(argc, argv, 1);
-      test(argc, argv, 2);
+    // if(device == -1){
+    //   //test(argc, argv, 0);
+    //   test(argc, argv, 1);
+    //   test(argc, argv, 2);
+    // }
+    // else
+    //   test(argc, argv, device);
+    if (device == -1)
+    {
+      test(argc, argv, "FLIR_Boson_322011");
+      test(argc, argv, "FLIR_Boson_322008");
     }
     else
-      test(argc, argv, device);
+      throw std::runtime_error("NON-STEREO CAMERA NOT SUPPORTED");
 }
 };
 
