@@ -65,7 +65,7 @@ void FlirRos::onInit() {
     printf("Setting sync mode for device 1\n");
     set_sync_mode(sync_mode, 1);
     printf("Setting sync mode for device 2\n");
-    set_sync_mode(sync_mode+1, 2);
+    set_sync_mode(sync_mode, 2);
 
     camera_num = 0;
   }
