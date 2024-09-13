@@ -55,7 +55,7 @@
 	<param name="ffc_mode" value="1" type="int" />
 
 	<!-- 0 disable, 1 master, 2 slave -->
-	<param name="sync_mode" value="1" type="int" />
+	<param name="sync_mode" value="2" type="int" />
 	
 	<param name="set_config" value="false" type="bool" />
   </node>
