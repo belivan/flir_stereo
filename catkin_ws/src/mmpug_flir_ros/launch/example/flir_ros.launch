@@ -12,7 +12,6 @@
         <param name="send_every_n" value="2" type="int" />
 
         <param name="use_ext_sync" value="1" type="int" />
-        <param name="sync_mode" value="2" type="int" />
 
         <param name="width" value="640" type="int"/>
         <param name="height" value="512" type="int"/>

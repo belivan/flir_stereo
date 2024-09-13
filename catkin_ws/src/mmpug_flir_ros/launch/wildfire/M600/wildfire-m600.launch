@@ -1,0 +1,28 @@
+<launch>
+  <node pkg="nodelet" type="nodelet" name="flir_nodelet_manager" args="manager" output="screen"/>
+
+  <arg name="camera_name" default="thermal"/>
+  <node pkg="nodelet" type="nodelet" name="flir_nodelet_left" args="load flir_ros_sync/FlirRos flir_nodelet_manager" output="screen">
+    <!-- left camera and serial port -->
+    <param name="device_name" value="/dev/flir_boson_video_34564"/>
+    <param name="serial_port" value="/dev/flir_boson_serial_34564"/>
+    <param name="raw" value="true" type="bool" />
+    <param name="publish_image_sharing_every_n" value="1" type="int" />
+    <param name="send_every_n" value="1" type="int" />
+
+    <param name="use_ext_sync" value="1" type="int" />
+
+    <param name="width" value="640" type="int"/>
+    <param name="height" value="512" type="int"/>
+
+    <param name="camera_name" value="$(arg camera_name)"/>
+    <param name="intrinsic_url" value="package://flir_ros_sync/data/camera_info/wildfire/m600/down-45.yaml"/>
+    <remap from="/set_camera_info" to="$(arg camera_name)/set_camera_info"/>
+
+    <!-- 0 high, 1 low, 2 auto, 3 dual, 4 manual -->
+    <param name="gain_mode" value="2" type="int" />
+
+    <!-- 0 manual, 1 auto, 2 external, 3 shutter test -->
+    <param name="ffc_mode" value="0" type="int" />
+  </node>
+</launch>

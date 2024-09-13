@@ -4,17 +4,17 @@ Commands (also refererred to as APIs) are provided for getting information from 
 Installation and Upgrade Instructions
 
 1.            No direct installation required, multiple versions of SDK may be used simultaneously
-       •      Simply store in differently named folders
+       ï¿½      Simply store in differently named folders
 2.            Unzip the SDK 
-       •      Avoid spaces in path names to prevent errors
+       ï¿½      Avoid spaces in path names to prevent errors
 3.            Import the ClientFiles_* folder appropriate to the coding language
-       •      For Python import the SDK module itself and access the API commands via the "pyClient" object (see Quick Start below)
-       •      Python also requires the top level folder and __init__.py file (new for 2.0.6)
+       ï¿½      For Python import the SDK module itself and access the API commands via the "pyClient" object (see Quick Start below)
+       ï¿½      Python also requires the top level folder and __init__.py file (new for 2.0.6)
 4.            Import the FSLP_* library (.dll or .so) appropriate to the PC architecture 
-       •      Located in FSLP_Files folder
-       •      C# language uses a .NET serial port implementation instead of the pre-built DLL.
-       •      For Python this import is automatically done by the UART class located  in FSLP_Files/UART_HalfDuplex.py
-       •      May choose to modify and recompile library using source files instead.
+       ï¿½      Located in FSLP_Files folder
+       ï¿½      C# language uses a .NET serial port implementation instead of the pre-built DLL.
+       ï¿½      For Python this import is automatically done by the UART class located  in FSLP_Files/UART_HalfDuplex.py
+       ï¿½      May choose to modify and recompile library using source files instead.
 
 
 

@@ -19,7 +19,7 @@
 #include "../include/image_transport.h"
 #include <cv_bridge/cv_bridge.h>
 
-//#include <image_sharing/image_sharing.h>
+#include <image_sharing/image_sharing.h>
 
 namespace flir_ros_sync {
 
@@ -54,8 +54,7 @@ class FlirRos : public nodelet::Nodelet {
   int send_every_n=1;
   int count=0;
   void* buffer = nullptr;
-
-  int camera_num;
+  float timestampOffset = 0.0f; // signed value in seconds, true capture time = message receival time + offset, should be negative if message arrive later than capture
 
   // flir parameters
   int gain_mode = 2;
@@ -79,7 +78,7 @@ class FlirRos : public nodelet::Nodelet {
   std::unique_ptr<image_transport::ImageTransport> it;
   image_transport::CameraPublisher image_pub;
   image_transport::Publisher rect_image_pub;
-  //nv2ros::Publisher* nv_image_pub;
+  nv2ros::Publisher* nv_image_pub;
   std::string intrinsic_url;
 
   // camera intrinsics info

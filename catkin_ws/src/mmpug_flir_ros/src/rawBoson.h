@@ -10,6 +10,7 @@
 
 #include "serial.h"
 #include "bytes.h"
+#include <string>
 #include <unistd.h>
 #include <time.h>
 
@@ -46,13 +47,13 @@
 
 void print_buffer(unsigned char *buffer, int bufferlen);
 
-void shutter();
-void set_gain_mode(int gain_mode);
-int get_gain_mode();
-void set_ffc_mode(int ffc_mode);
-int get_ffc_mode();
-int get_ffc_status();
-void set_sync_mode(int sync_mode, int device);
-int get_sync_mode();
+void shutter(const std::string serial_port);
+void set_gain_mode(int gain_mode, const std::string serial_port);
+int get_gain_mode(const std::string serial_port);
+void set_ffc_mode(int ffc_mode, const std::string serial_port);
+int get_ffc_mode(const std::string serial_port);
+int get_ffc_status(const std::string serial_port);
+void set_sync_mode(int sync_mode, const std::string serial_port);
+int get_sync_mode(const std::string serial_port);
 
 #endif

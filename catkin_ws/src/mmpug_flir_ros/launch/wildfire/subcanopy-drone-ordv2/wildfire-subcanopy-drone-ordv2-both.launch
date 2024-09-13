@@ -1,0 +1,25 @@
+<launch>
+    <arg name="raw" default ="true" />
+    <arg name="left_flir_id" value="322008" />
+    <arg name="right_flir_id" value="322011" />
+
+    <!-- left and right thermal cameras -->
+    <include file="$(find flir_ros_sync)/launch/wildfire/subcanopy-drone-ordv2/wildfire-subcanopy-drone-ordv2-single.launch">
+        <arg name="raw" value="$(arg raw)"/>
+        <arg name="flir_id" value="$(arg left_flir_id)" />
+        <arg name="camera_name" value="thermal_left" />
+    </include>
+
+    <include file="$(find flir_ros_sync)/launch/wildfire/subcanopy-drone-ordv2/wildfire-subcanopy-drone-ordv2-single.launch">
+        <arg name="raw" value="$(arg raw)"/>
+        <arg name="flir_id" value="$(arg right_flir_id)" />
+        <arg name="camera_name" value="thermal_right" />
+    </include>
+
+    <!-- ! has to set modes in the same instant, otherwise the thermal camera not in sync mode will pull down the voltage to below 1.8V ! -->
+    <node pkg="flir_ros_sync" type="set_sync_mode" name="set_flir_sync_mode" output="screen">
+        <!-- 0 disable, 1 master, 2 slave -->
+        <param name="sync_mode" value="2" type="int" />
+        <rosparam param="serial_list">["flir_boson_serial_322008", "flir_boson_serial_322011"]</rosparam>
+    </node>
+</launch>
