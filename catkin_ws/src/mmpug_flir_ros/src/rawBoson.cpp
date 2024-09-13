@@ -504,26 +504,26 @@ public:
   }
 
 // Function to find the ACM port of the Boson camera, added by Anton
-std::string FindDeviceBySerial(const std::string& serial_id_substr) {
-    fs::path base_path("/dev/serial/by-id/");
+// std::string FindDeviceBySerial(const std::string& serial_id_substr) {
+//     fs::path base_path("/dev/serial/by-id/");
 
-    if (!fs::exists(base_path) || !fs::is_directory(base_path)) {
-        throw std::runtime_error("Could not open directory: " + base_path.string());
-    }
+//     if (!fs::exists(base_path) || !fs::is_directory(base_path)) {
+//         throw std::runtime_error("Could not open directory: " + base_path.string());
+//     }
 
-    for (const auto& entry : fs::directory_iterator(base_path)) {
-        std::string name = entry.path().filename().string();
-        if (name.find(serial_id_substr) != std::string::npos) {
-            fs::path resolved_path = fs::canonical(entry.path());
-            // Make sure the target is a TTY ACM device
-            if (resolved_path.string().find("/dev/ttyACM") != std::string::npos){
-                return resolved_path.string();
-            }
-        }
-    }
+//     for (const auto& entry : fs::directory_iterator(base_path)) {
+//         std::string name = entry.path().filename().string();
+//         if (name.find(serial_id_substr) != std::string::npos) {
+//             fs::path resolved_path = fs::canonical(entry.path());
+//             // Make sure the target is a TTY ACM device
+//             if (resolved_path.string().find("/dev/ttyACM") != std::string::npos){
+//                 return resolved_path.string();
+//             }
+//         }
+//     }
 
-    throw std::runtime_error("Device with serial ID substring " + serial_id_substr + " not found.");
-}
+//     throw std::runtime_error("Device with serial ID substring " + serial_id_substr + " not found.");
+// }
 
   //------------------------------------------------------
   // Entry point to the program. Read arguments and
