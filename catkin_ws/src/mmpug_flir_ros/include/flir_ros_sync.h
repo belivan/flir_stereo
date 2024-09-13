@@ -19,7 +19,7 @@
 #include "../include/image_transport.h"
 #include <cv_bridge/cv_bridge.h>
 
-#include <image_sharing/image_sharing.h>
+// #include <image_sharing/image_sharing.h>
 
 namespace flir_ros_sync {
 
@@ -78,7 +78,7 @@ class FlirRos : public nodelet::Nodelet {
   std::unique_ptr<image_transport::ImageTransport> it;
   image_transport::CameraPublisher image_pub;
   image_transport::Publisher rect_image_pub;
-  nv2ros::Publisher* nv_image_pub;
+  //nv2ros::Publisher* nv_image_pub;
   std::string intrinsic_url;
 
   // camera intrinsics info

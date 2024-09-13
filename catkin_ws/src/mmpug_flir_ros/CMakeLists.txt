@@ -18,7 +18,7 @@ find_package(catkin REQUIRED COMPONENTS
     camera_info_manager
     tf
     image_geometry
-    image_sharing
+    ## image_sharing
     )
 
 # set(OpenCV_DIR "~/Downloads/OpenCV/build")

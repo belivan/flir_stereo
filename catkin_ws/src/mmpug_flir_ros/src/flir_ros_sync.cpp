@@ -252,7 +252,7 @@ namespace flir_ros_sync
     rect_image_pub = it->advertise(rect_topic_name, 1);
     std::vector<std::string> topic_names;
     topic_names.push_back(("nv_" + camera_name));
-    nv_image_pub = new nv2ros::Publisher(nh, topic_names);
+    // nv_image_pub = new nv2ros::Publisher(nh, topic_names);
   }
 
   sensor_msgs::ImagePtr FlirRos::rectify_image(
@@ -316,7 +316,7 @@ namespace flir_ros_sync
       img->data.insert(img->data.begin(), reinterpret_cast<char *>(buffer),
                        reinterpret_cast<char *>(buffer) + bytes_used);
 
-      if (publish_image_sharing_every_n < 1000)
+      /*if (publish_image_sharing_every_n < 1000)
       {
         static nv2ros::NvImageMessage nv_image_message(width, height, time);
         static float prev_p_min = 100000;
@@ -362,7 +362,7 @@ namespace flir_ros_sync
           nv_image_message.set_stamp(time);
           nv_image_pub->publish(nv_image_message);
         }
-      }
+      }*/
     }
     else
     { // Use opencv to convert from YUV420 to RGB
@@ -382,7 +382,7 @@ namespace flir_ros_sync
 
       img->step = width * bytes_per_pixel;
       img->encoding = sensor_msgs::image_encodings::RGB8;
-      if (publish_image_sharing_every_n < 1000)
+      /*if (publish_image_sharing_every_n < 1000)
       {
         static nv2ros::NvImageMessage nv_image_message(width, height, time);
         static int count = 0;
@@ -415,7 +415,7 @@ namespace flir_ros_sync
           nv_image_message.set_stamp(time);
           nv_image_pub->publish(nv_image_message);
         }
-      }
+      }*/
     }
     // publish raw image
     image_pub.publish(img, cam_info_ptr);
