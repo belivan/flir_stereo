@@ -3,6 +3,8 @@
   <arg name="flir_id" default="124540" />
   <arg name="camera_name" default="thermal_left" />
   <arg name="timestamp_offset" default="-0.026175822688833554"/>
+  <arg name="sync_mode" default="1" />
+  <arg name="package" default="set_flir_sync_mode_1" />
   <!-- signed timestamp offset in seconds, true capture time = message receival time + offset, should be negative if message arrive later than capture -->
 
   <node pkg="nodelet" type="nodelet" name="flir_nodelet_manager_$(arg flir_id)" args="manager" output="screen"/>
@@ -30,4 +32,10 @@
     <!-- 0 manual, 1 auto, 2 external, 3 shutter test -->
     <param name="ffc_mode" value="0" type="int" />
   </node>
+
+  <node pkg="flir_ros_sync" type="set_sync_mode" name="$(arg package)" output="screen">
+        <!-- 0 disable, 1 master, 2 slave -->
+        <param name="sync_mode" value="$(arg sync_mode)" type="int" />
+        <rosparam param="serial_list">["flir_boson_serial_$(arg flir_id)"]</rosparam>
+    </node>
 </launch>
