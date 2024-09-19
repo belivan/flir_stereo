@@ -217,96 +217,96 @@
 
 
 
-const int LED_pin = 13;         // LED output,  for testing
-int output_pin1 = 2;
-int output_pin2 = 3;
+// const int LED_pin = 13;         // LED output,  for testing
+// int output_pin1 = 2;
+// int output_pin2 = 3;
 
-uint8_t state = HIGH;
-int pulse_length = 1800;
+// uint8_t state = HIGH;
+// int pulse_length = 1800;
 
-unsigned int time_since_boot_in_tenths_of_seconds = 0;
-unsigned short header = 0x55aa;
-unsigned short footer = 0x66bb;
-char* packet;
-unsigned int packet_size = sizeof(unsigned short) + sizeof(unsigned int) + sizeof(unsigned short);
-volatile unsigned short pulse_count = 0;
+// unsigned int time_since_boot_in_tenths_of_seconds = 0;
+// unsigned short header = 0x55aa;
+// unsigned short footer = 0x66bb;
+// char* packet;
+// unsigned int packet_size = sizeof(unsigned short) + sizeof(unsigned int) + sizeof(unsigned short);
+// volatile unsigned short pulse_count = 0;
 
-IntervalTimer timer;
+// IntervalTimer timer;
 
-// put your setup code here, to run once:
-void setup() {
-  pinMode(LED_pin, OUTPUT);
-  digitalWrite(LED_pin, OUTPUT);
-  pinMode(output_pin1, OUTPUT);
-  pinMode(output_pin2, OUTPUT);
+// // put your setup code here, to run once:
+// void setup() {
+//   pinMode(LED_pin, OUTPUT);
+//   digitalWrite(LED_pin, OUTPUT);
+//   pinMode(output_pin1, OUTPUT);
+//   pinMode(output_pin2, OUTPUT);
 
-  packet = (char*)malloc(packet_size);
+//   packet = (char*)malloc(packet_size);
 
-  Serial.begin(9600);    // for usb serial, for testing. can directly connect to PC
+//   Serial.begin(9600);    // for usb serial, for testing. can directly connect to PC
 
-  timer.begin(pulse, 100000); // 1/10th of a second
-}
+//   timer.begin(pulse, 100000); // 1/10th of a second
+// }
 
 
-void pulse(){
-  // turn the LED on for 1 second at the beginning of each 10 second period
-  if(pulse_count == 0)
-    digitalWrite(LED_pin, HIGH);
-  else if(pulse_count == 10)
-   digitalWrite(LED_pin, LOW);
+// void pulse(){
+//   // turn the LED on for 1 second at the beginning of each 10 second period
+//   if(pulse_count == 0)
+//     digitalWrite(LED_pin, HIGH);
+//   else if(pulse_count == 10)
+//    digitalWrite(LED_pin, LOW);
 
-  // build the time packet
-  memcpy(&packet[0], &header, sizeof(unsigned short));
-  memcpy(&packet[sizeof(unsigned short)], &time_since_boot_in_tenths_of_seconds, sizeof(unsigned int));
-  memcpy(&packet[sizeof(unsigned short) + sizeof(unsigned int)], &footer, sizeof(unsigned short));
-  /*
-  packet[0] = reinterpret_cast<char*>(&header)[0];
-  packet[1] = reinterpret_cast<char*>(&header)[1];
-  packet[2] = reinterpret_cast<char*>(&time_since_boot_in_tenths_of_seconds)[0];
-  packet[3] = reinterpret_cast<char*>(&time_since_boot_in_tenths_of_seconds)[1];
-  packet[4] = 0x0d;//reinterpret_cast<char*>(&time_since_boot_in_tenths_of_seconds)[2];
-  packet[5] = 0x0a;//reinterpret_cast<char*>(&time_since_boot_in_tenths_of_seconds)[3];
-  packet[6] = reinterpret_cast<char*>(&footer)[0];
-  packet[7] = reinterpret_cast<char*>(&footer)[1];
-  */
+//   // build the time packet
+//   memcpy(&packet[0], &header, sizeof(unsigned short));
+//   memcpy(&packet[sizeof(unsigned short)], &time_since_boot_in_tenths_of_seconds, sizeof(unsigned int));
+//   memcpy(&packet[sizeof(unsigned short) + sizeof(unsigned int)], &footer, sizeof(unsigned short));
+//   /*
+//   packet[0] = reinterpret_cast<char*>(&header)[0];
+//   packet[1] = reinterpret_cast<char*>(&header)[1];
+//   packet[2] = reinterpret_cast<char*>(&time_since_boot_in_tenths_of_seconds)[0];
+//   packet[3] = reinterpret_cast<char*>(&time_since_boot_in_tenths_of_seconds)[1];
+//   packet[4] = 0x0d;//reinterpret_cast<char*>(&time_since_boot_in_tenths_of_seconds)[2];
+//   packet[5] = 0x0a;//reinterpret_cast<char*>(&time_since_boot_in_tenths_of_seconds)[3];
+//   packet[6] = reinterpret_cast<char*>(&footer)[0];
+//   packet[7] = reinterpret_cast<char*>(&footer)[1];
+//   */
 
-  // send the packet over USB
-  if(Serial)
-    for(unsigned int i = 0; i < packet_size; i++)
-      Serial.write(packet[i]);
+//   // send the packet over USB
+//   if(Serial)
+//     for(unsigned int i = 0; i < packet_size; i++)
+//       Serial.write(packet[i]);
 
-  // update counters
-  time_since_boot_in_tenths_of_seconds++;
-  pulse_count++;
-  if(pulse_count == 100)
-    pulse_count = 0;
-}
+//   // update counters
+//   time_since_boot_in_tenths_of_seconds++;
+//   pulse_count++;
+//   if(pulse_count == 100)
+//     pulse_count = 0;
+// }
 
-uint8_t opposite_state(uint8_t s){
-  if(s == HIGH)
-    return LOW;
-  return HIGH;
-}
+// uint8_t opposite_state(uint8_t s){
+//   if(s == HIGH)
+//     return LOW;
+//   return HIGH;
+// }
 
-// if delayNanoseconds tries to sleep for too long there is some rollover internally and it doesn't sleep for the right amount of time
-void big_delay(int ns){
-  int safe_amount = 100000;
-  int iterations = ns / safe_amount;
-  int remainder = ns % safe_amount;
-  for(int i = 0; i < iterations; i++)
-    delayNanoseconds(safe_amount);
-  if(remainder > 0)
-    delayNanoseconds(remainder);
-}
+// // if delayNanoseconds tries to sleep for too long there is some rollover internally and it doesn't sleep for the right amount of time
+// void big_delay(int ns){
+//   int safe_amount = 100000;
+//   int iterations = ns / safe_amount;
+//   int remainder = ns % safe_amount;
+//   for(int i = 0; i < iterations; i++)
+//     delayNanoseconds(safe_amount);
+//   if(remainder > 0)
+//     delayNanoseconds(remainder);
+// }
 
-int period = 16666666;
+// int period = 16666666;
 
-void loop() {
-  // NEW SIGNAL 60HZ and 50% duty cycle
-  digitalWrite(output_pin1, HIGH);
-  big_delay(period/2)
-  digitalWrite(output_pin1, LOW);
-  big_delay(period/2)
+// void loop() {
+//   // NEW SIGNAL 60HZ and 50% duty cycle
+//   digitalWrite(output_pin1, HIGH);
+//   big_delay(period/2);
+//   digitalWrite(output_pin1, LOW);
+//   big_delay(period/2);
  
   // digitalWrite(output_pin1, HIGH);
   // delayNanoseconds(pulse_length);
@@ -331,7 +331,40 @@ void loop() {
     delayNanoseconds(delay);
   delayNanoseconds(666666 - pulse_length);
 */
+// }
+
+
+#include <IntervalTimer.h>
+
+IntervalTimer timer;        // Create an IntervalTimer object
+const int ppsPin = 1;       // Pin where the PPS signal is connected
+const int outputPin = 2;   // Pin to generate the signal (e.g., an LED or output pin)
+volatile bool state = LOW;  // To keep track of the pin state (HIGH or LOW)
+
+// This function toggles the output pin
+void togglePin() {
+  digitalWrite(outputPin, state);  // Set the pin to the current state (HIGH or LOW)
+  state = !state;                  // Invert the state for the next toggle
 }
+
+// Interrupt function for PPS signal
+void ppsInterrupt() {
+  timer.end();                     // Stop the timer if it's running
+  if (state == HIGH) { state = LOW; digitalWrite(outputPin, state);}            // If the state is HIGH, reset it to LOW
+  
+  timer.begin(togglePin, 8333);    // Restart the timer with a 16.67ms period (60Hz)
+}
+
+void setup() {
+  pinMode(outputPin, OUTPUT);      // Set the output pin as an output
+  pinMode(ppsPin, INPUT);          // Set the PPS pin as an input
+  attachInterrupt(digitalPinToInterrupt(ppsPin), ppsInterrupt, RISING);  // Trigger on the rising edge of PPS signal
+}
+
+void loop() {
+  // Nothing here, the work is done by the interrupt and timer
+}
+
 
 
 

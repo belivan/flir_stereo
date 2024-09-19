@@ -1,7 +1,8 @@
 <launch>
     <arg name="raw" default ="true" />
-`    <arg name="left_flir_id" value="322008" />
+`   <arg name="left_flir_id" value="322008" />
     <arg name="right_flir_id" value="322011" />
+    <arg name="master_flir_id" value="34582" />
 
     <!-- left and right thermal cameras -->
     <include file="$(find flir_ros_sync)/launch/wildfire/subcanopy-drone-ordv2/wildfire-subcanopy-drone-ordv2-single.launch">
@@ -14,14 +15,39 @@
         <arg name="raw" value="$(arg raw)"/>
         <arg name="flir_id" value="$(arg right_flir_id)" />
         <arg name="camera_name" value="thermal_right" />
-        <arg name="sync_mode" value="2" />
-        <arg name="package" value="set_flir_sync_mode_2" />
+    </include>
+
+    <!-- master thermal cam -->
+    <include file="$(find flir_ros_sync)/launch/wildfire/subcanopy-drone-ordv2/wildfire-subcanopy-drone-ordv2-single.launch">
+        <arg name="raw" value="$(arg raw)"/>
+        <arg name="flir_id" value="$(arg master_flir_id)" />
+        <arg name="camera_name" value="thermal_master" />
     </include>
 
     <!-- ! has to set modes in the same instant, otherwise the thermal camera not in sync mode will pull down the voltage to below 1.8V ! -->
-    <node pkg="flir_ros_sync" type="set_sync_mode" name="set_flir_sync_mode" output="screen">
-        <!-- 0 disable, 1 master, 2 slave -->
-        <param name="sync_mode" value="2" type="int" />
-        <rosparam param="serial_list">["flir_boson_serial_124540", "flir_boson_serial_33062"]</rosparam>
-    </node>
+
+    <!-- First instance with sync_mode = 2 (Slave) -->
+    <group ns="camera1">
+        <node pkg="flir_ros_sync" type="set_sync_mode" name="set_flir_sync_mode_camera1" output="screen">
+            <param name="sync_mode" value="2" type="int" />
+            <rosparam param="serial_list">["flir_boson_serial_322008"]</rosparam>
+        </node>
+    </group>
+
+    <!-- Second instance with sync_mode = 2 (Slave) -->
+    <group ns="camera2">
+        <node pkg="flir_ros_sync" type="set_sync_mode" name="set_flir_sync_mode_camera2" output="screen">
+            <param name="sync_mode" value="2" type="int" />
+            <rosparam param="serial_list">["flir_boson_serial_322011"]</rosparam>
+        </node>
+    </group>
+
+    <!-- Third instance with sync_mode = 1 (Master) -->
+    <group ns="camera3">
+        <node pkg="flir_ros_sync" type="set_sync_mode" name="set_flir_sync_mode_camera3" output="screen">
+            <param name="sync_mode" value="1" type="int" />
+            <rosparam param="serial_list">["flir_boson_serial_34582"]</rosparam>
+        </node>
+    </group>
+
 </launch>
