@@ -302,19 +302,24 @@ void big_delay(int ns){
 int period = 16666666;
 
 void loop() {
- 
+  // NEW SIGNAL 60HZ and 50% duty cycle
   digitalWrite(output_pin1, HIGH);
-  delayNanoseconds(pulse_length);
+  big_delay(period/2)
   digitalWrite(output_pin1, LOW);
+  big_delay(period/2)
+ 
+  // digitalWrite(output_pin1, HIGH);
+  // delayNanoseconds(pulse_length);
+  // digitalWrite(output_pin1, LOW);
 
-  big_delay(period/2 - pulse_length);
+  // big_delay(period/2 - pulse_length);
 
-  digitalWrite(output_pin2, HIGH);
-  delayNanoseconds(pulse_length);
-  digitalWrite(output_pin2, LOW);
+  // digitalWrite(output_pin2, HIGH);
+  // delayNanoseconds(pulse_length);
+  // digitalWrite(output_pin2, LOW);
 
   //delay(16);
-  big_delay(period/2 - pulse_length);
+  //big_delay(period/2 - pulse_length);
 
  /* working with 1 pin
   digitalWrite(output_pin1, HIGH);
