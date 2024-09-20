@@ -11,19 +11,6 @@
         <arg name="camera_name" value="thermal_left" />
     </include>
 
-    <include file="$(find flir_ros_sync)/launch/wildfire/subcanopy-drone-ordv2/wildfire-subcanopy-drone-ordv2-single.launch">
-        <arg name="raw" value="$(arg raw)"/>
-        <arg name="flir_id" value="$(arg right_flir_id)" />
-        <arg name="camera_name" value="thermal_right" />
-    </include>
-
-    <!-- master thermal cam -->
-    <include file="$(find flir_ros_sync)/launch/wildfire/subcanopy-drone-ordv2/wildfire-subcanopy-drone-ordv2-single.launch">
-        <arg name="raw" value="$(arg raw)"/>
-        <arg name="flir_id" value="$(arg master_flir_id)" />
-        <arg name="camera_name" value="thermal_master" />
-    </include>
-
     <!-- ! has to set modes in the same instant, otherwise the thermal camera not in sync mode will pull down the voltage to below 1.8V ! -->
 
     <!-- First instance with sync_mode = 2 (Slave) -->
@@ -31,22 +18,6 @@
         <node pkg="flir_ros_sync" type="set_sync_mode" name="set_flir_sync_mode_camera1" output="screen">
             <param name="sync_mode" value="2" type="int" />
             <rosparam param="serial_list">["flir_boson_serial_322008"]</rosparam>
-        </node>
-    </group>
-
-    <!-- Second instance with sync_mode = 2 (Slave) -->
-    <group ns="camera2">
-        <node pkg="flir_ros_sync" type="set_sync_mode" name="set_flir_sync_mode_camera2" output="screen">
-            <param name="sync_mode" value="2" type="int" />
-            <rosparam param="serial_list">["flir_boson_serial_322011"]</rosparam>
-        </node>
-    </group>
-
-    <!-- Third instance with sync_mode = 1 (Master) -->
-    <group ns="camera3">
-        <node pkg="flir_ros_sync" type="set_sync_mode" name="set_flir_sync_mode_camera3" output="screen">
-            <param name="sync_mode" value="1" type="int" />
-            <rosparam param="serial_list">["flir_boson_serial_34582"]</rosparam>
         </node>
     </group>
 
