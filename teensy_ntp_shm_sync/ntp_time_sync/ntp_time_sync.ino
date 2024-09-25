@@ -94,3 +94,12 @@ void loop() {
 
   delay(1000);  // Delay for readability of the output
 }
+
+void smartDelay(unsigned long ms) {
+  unsigned long start = millis();
+  do {
+    while (Serial2.available()) {
+      gps.encode(Serial2.read());  // Feed GPS data to the TinyGPSPlus object
+    }
+  } while (millis() - start < ms);
+}
