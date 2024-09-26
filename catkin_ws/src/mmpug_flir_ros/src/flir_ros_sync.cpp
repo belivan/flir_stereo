@@ -289,7 +289,7 @@ namespace flir_ros_sync
       time_t system_nsec = systemtime.tv_nsec;
       uint32_t trigger_nsec = static_cast<uint32_t>(system_nsec) - (static_cast<uint32_t>(system_nsec) % one_tenth_nsec) + static_cast<uint32_t>(timestampOffset * 1e9);
 
-       // Handle potential overflow of nanoseconds
+      // Handle potential overflow of nanoseconds
       if (trigger_nsec >= 1e9) {
         trigger_nsec -= 1e9;
         system_sec += 1;
