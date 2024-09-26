@@ -283,7 +283,7 @@ namespace flir_ros_sync
       clock_gettime(CLOCK_REALTIME, &systemtime);
       // take the 1/60s second since we are trigger the camera at 60hz
       // and the trigger is aligned with system time (CLOCK_REALTIME)
-      
+
       uint32_t one_tenth_nsec = 100000000;  // MODIFIED TO 10 HZ from one_sixtieth_nsec = 16666667;
       time_t system_sec = systemtime.tv_sec;
       time_t system_nsec = systemtime.tv_nsec;

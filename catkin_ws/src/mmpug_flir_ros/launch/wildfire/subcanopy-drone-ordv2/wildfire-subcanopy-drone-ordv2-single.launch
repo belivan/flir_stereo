@@ -2,7 +2,7 @@
   <arg name="raw" default="true" />
   <arg name="flir_id" default="124540" />
   <arg name="camera_name" default="thermal_left" />
-  <arg name="timestamp_offset" default="-0.026175822688833554"/>
+  <arg name="timestamp_offset" default="0"/>
   <!-- signed timestamp offset in seconds, true capture time = message receival time + offset, should be negative if message arrive later than capture -->
 
   <node pkg="nodelet" type="nodelet" name="flir_nodelet_manager_$(arg flir_id)" args="manager" output="screen"/>
