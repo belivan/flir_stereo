@@ -2,6 +2,7 @@
   <arg name="raw" default="true" />
   <arg name="flir_id" default="124540" />
   <arg name="camera_name" default="thermal_left" />
+  <!-- might want to adjust the offset sometime soon -->
   <arg name="timestamp_offset" default="0"/>
   <!-- signed timestamp offset in seconds, true capture time = message receival time + offset, should be negative if message arrive later than capture -->
 
