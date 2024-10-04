@@ -1,7 +1,7 @@
 <launch>
     <arg name="raw" default ="true" />
-`   <arg name="left_flir_id" value="322008" />
-    <arg name="right_flir_id" value="322011" />
+`   <arg name="left_flir_id" value="322011" />
+    <arg name="right_flir_id" value="322008" />
 
     <!-- left and right thermal cameras -->
     <include file="$(find flir_ros_sync)/launch/wildfire/subcanopy-drone-ordv2/wildfire-subcanopy-drone-ordv2-single.launch">
