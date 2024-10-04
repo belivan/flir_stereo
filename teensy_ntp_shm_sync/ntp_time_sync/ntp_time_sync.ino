@@ -84,7 +84,7 @@ void ppsInterrupt() {
     }
 
     // Restart the timer
-    timer.begin(togglePin, 8333 * 6); // Currently set to 10 Hz
+    timer.begin(togglePin, 8333); // Currently set to 4Hz
   }
 }
 
