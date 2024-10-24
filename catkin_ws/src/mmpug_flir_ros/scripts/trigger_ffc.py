@@ -1,3 +1,5 @@
+#!/usr/bin/env python3
+
 import os
 import rospy
 from flirpy.camera.boson import Boson
@@ -24,10 +26,14 @@ def resolve_serial_ports(serial_list):
 
 def main():
     # Initialize the ROS node
-    rospy.init_node('flir_ffc_trigger', anonymous=True)
+    rospy.init_node('flir_ffc_trigger')
+
+    rospy.loginfo("STARTING")
 
     # Get the list of serial ports from the launch file (for example, passed as a parameter)
-    serial_list = rospy.get_param('~serial_list', ["flir_boson_serial_322008", "flir_boson_serial_322011"])
+    serial_list = rospy.get_param('serial_list', ["flir_boson_serial_322008", "flir_boson_serial_322011"])
+    rospy.loginfo(f"Received serial list: {serial_list}")
+
 
     # Resolve the full paths for each serial port
     resolved_serial_ports = resolve_serial_ports(serial_list)
@@ -55,12 +61,16 @@ def main():
             except Exception as e:
                 rospy.logerr(f"Failed to trigger FFC on camera {camera.port}: {e}")
 
-    # Set the loop rate to trigger FFC every 3 minutes
-    rate = rospy.Rate(1/180)  # 1/180 Hz = once every 180 seconds = 3 minutes
+    # Set the loop rate to trigger FFC every 3 minutes (every 10 secs now)
+    rate = rospy.Rate(1/10)  # 1/180 Hz = once every 180 seconds = 3 minutes
+    first = True
 
     # Trigger FFC in an infinite loop
     while not rospy.is_shutdown():
-        trigger_ffc()
+        if first:
+            first = False
+        else:
+            trigger_ffc()
         rate.sleep()
 
     # Close the cameras before exiting
