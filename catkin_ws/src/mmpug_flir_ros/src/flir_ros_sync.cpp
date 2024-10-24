@@ -98,6 +98,9 @@ namespace flir_ros_sync
     bufferinfo.memory = V4L2_MEMORY_MMAP;
     bufferinfo.index = 0;
 
+    // FFC trigger time
+    // auto last_ffc_time = std::chrono::steady_clock::now();
+
     while (stream.load()) {
       if (ioctl(fd, VIDIOC_QBUF, &bufferinfo) < 0) {
         NODELET_INFO("Couldn't queue :(");
@@ -111,6 +114,17 @@ namespace flir_ros_sync
         break;  // Couldn't de-queue
       }
 
+      // UPDATE: Check if 3 minutes have passed since the last FFC
+      // auto now = std::chrono::steady_clock::now();
+      // if (std::chrono::duration_cast<std::chrono::seconds>(now - last_ffc_time).count() >= 30) {
+      //     // Trigger FFC
+      //     shutter(serialPortRoot);
+      //     NODELET_INFO("FFC triggered");
+
+      //     // Update the last FFC trigger time
+      //     last_ffc_time = now;
+      // }
+
       // TODO(vasua): Publish diagnostic msgs here.
 
         count=count+1;
@@ -118,6 +132,7 @@ namespace flir_ros_sync
       { 
         ros::Time frame_time;
         get_frame_time(frame_time);
+
         publish_frame(bufferinfo.bytesused, frame_time);
         count=0;
         // publish tf for every frame

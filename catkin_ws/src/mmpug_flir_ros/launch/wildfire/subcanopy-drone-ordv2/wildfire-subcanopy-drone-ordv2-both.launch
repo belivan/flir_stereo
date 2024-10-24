@@ -1,6 +1,6 @@
 <launch>
-    <arg name="raw" default ="true" />
-`   <arg name="left_flir_id" value="322011" />
+    <arg name="raw" default="true" />
+    <arg name="left_flir_id" value="322011" />
     <arg name="right_flir_id" value="322008" />
 
     <!-- left and right thermal cameras -->
@@ -16,10 +16,16 @@
         <arg name="camera_name" value="thermal_right" />
     </include>
 
-    <!-- ! has to set modes in the same instant, otherwise the thermal camera not in sync mode will pull down the voltage to below 1.8V ! -->
-
+    <!-- Set sync mode for both cameras -->
     <node pkg="flir_ros_sync" type="set_sync_mode" name="set_flir_sync_mode" output="screen">
+        <!-- 0 disable, 1 master, 2 slave -->
         <param name="sync_mode" value="2" type="int" />
         <rosparam param="serial_list">["flir_boson_serial_322008", "flir_boson_serial_322011"]</rosparam>
+    </node>
+
+    <!-- Node to trigger FFC every 3 minutes -->
+    <node pkg="your_package_name" type="trigger_ffc.py" name="flir_ffc_trigger" output="screen">
+        <param name="left_flir_id" value="$(arg left_flir_id)" />
+        <param name="right_flir_id" value="$(arg right_flir_id)" />
     </node>
 </launch>
