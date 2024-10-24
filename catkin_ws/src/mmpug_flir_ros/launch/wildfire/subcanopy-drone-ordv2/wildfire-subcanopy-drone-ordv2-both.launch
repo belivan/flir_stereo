@@ -2,6 +2,8 @@
     <arg name="raw" default="true" />
     <arg name="left_flir_id" value="322011" />
     <arg name="right_flir_id" value="322008" />
+    
+    <arg name="serial_list" value="['flir_boson_serial_322008', 'flir_boson_serial_322011']" />
 
     <!-- left and right thermal cameras -->
     <include file="$(find flir_ros_sync)/launch/wildfire/subcanopy-drone-ordv2/wildfire-subcanopy-drone-ordv2-single.launch">
@@ -24,8 +26,9 @@
     </node>
 
     <!-- Node to trigger FFC every 3 minutes -->
-    <node pkg="your_package_name" type="trigger_ffc.py" name="flir_ffc_trigger" output="screen">
-        <param name="left_flir_id" value="$(arg left_flir_id)" />
-        <param name="right_flir_id" value="$(arg right_flir_id)" />
+    <node pkg="your_package_name" type="trigger_ffc" name="flir_ffc_trigger" output="screen">
+        <rosparam param="serial_list">$(arg serial_list)</rosparam>
     </node>
+</launch>
+
 </launch>
