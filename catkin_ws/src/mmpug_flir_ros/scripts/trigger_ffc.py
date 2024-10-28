@@ -58,8 +58,14 @@ def main():
         for camera in cameras:
             try:
                 camera.do_ffc()
+                
+                # Check if NUC table switch is desired
+                if camera.get_nuc_desired() == 1:
+                    rospy.loginfo(f"NUC Table Switch Desired for camera on port: {camera.port}. Switching NUC table.")
+                    camera.do_nuc_table_switch()  # Perform the NUC table switch if needed
+                    rospy.loginfo(f"NUC table updated for camera on port: {camera.port}")
             except Exception as e:
-                rospy.logerr(f"Failed to trigger FFC on camera {camera.port}: {e}")
+                rospy.logerr(f"Failed FFC or NUC on camera {camera.port}: {e}")
 
     # Set the loop rate to trigger FFC every 3 minutes (every 10 secs now)
     rate = rospy.Rate(1/10)  # 1/180 Hz = once every 180 seconds = 3 minutes
