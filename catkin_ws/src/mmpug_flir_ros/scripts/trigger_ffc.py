@@ -68,7 +68,7 @@ def main():
                 rospy.logerr(f"Failed FFC or NUC on camera {camera.port}: {e}")
 
     # Set the loop rate to trigger FFC every 3 minutes (every 10 secs now)
-    rate = rospy.Rate(1/10)  # 1/180 Hz = once every 180 seconds = 3 minutes
+    rate = rospy.Rate(1/180)  # 1/180 Hz = once every 180 seconds = 3 minutes
     first = True
 
     # Trigger FFC in an infinite loop
