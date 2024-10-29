@@ -1,0 +1,34 @@
+<launch>
+  <arg name="raw" default="true" />
+  <arg name="flir_id" default="124540" />
+  <arg name="camera_name" default="thermal_left" />
+  <!-- might want to adjust the offset sometime soon -->
+  <arg name="timestamp_offset" default="0"/>
+  <!-- signed timestamp offset in seconds, true capture time = message receival time + offset, should be negative if message arrive later than capture -->
+
+  <node pkg="nodelet" type="nodelet" name="flir_nodelet_manager_$(arg flir_id)" args="manager" output="screen"/>
+
+  <node pkg="nodelet" type="nodelet" name="flir_nodelet_$(arg flir_id)" args="load flir_ros_sync/FlirRos flir_nodelet_manager_$(arg flir_id)" output="screen">
+    <!-- camera and serial port dev symlink -->
+    <param name="device_name" value="/dev/flir_boson_video_$(arg flir_id)"/>
+    <param name="serial_port" value="/dev/flir_boson_serial_$(arg flir_id)"/>
+    <param name="raw" value="$(arg raw)" type="bool" />
+    <param name="publish_image_sharing_every_n" value="1" type="int" />
+    <param name="send_every_n" value="1" type="int" />
+    <param name="timestamp_offset" value="$(arg timestamp_offset)" type="double" />
+    <param name="use_ext_sync" value="1" type="int" />
+
+    <param name="width" value="640" type="int"/>
+    <param name="height" value="512" type="int"/>
+
+    <param name="camera_name" value="$(arg camera_name)"/>
+    <param name="intrinsic_url" value="package://flir_ros_sync/data/camera_info/wildfire/subcanopy-drone-ordv2/$(arg camera_name).yaml"/>
+    <remap from="/set_camera_info" to="$(arg camera_name)/set_camera_info"/>
+
+    <!-- 0 high, 1 low, 2 auto, 3 dual, 4 manual -->
+    <param name="gain_mode" value="2" type="int" />
+
+    <!-- 0 manual, 1 auto, 2 external, 3 shutter test -->
+    <param name="ffc_mode" value="0" type="int" />
+  </node>
+</launch>

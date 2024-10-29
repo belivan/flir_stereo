@@ -13,7 +13,7 @@ volatile unsigned long ppsMicros = 0;   // To keep track of the PPS signal time
 long drift = 0;
 const unsigned long PPS_INTERVAL_US = 1000000;  // 1 second in microseconds
 float clockFactor = 1.0;  // Clock factor to adjust the drift
-const unsigned long DEBOUNCE_TIME_US = 100; // 100 microseconds debounce time
+const unsigned long DEBOUNCE_TIME_US = 950000; // 100 microseconds debounce time
 
 // PID controller parameters
 float Kp = 0.1;
@@ -28,7 +28,7 @@ unsigned long lastSoftwareMicros = 0;
 volatile time_t synchronizedTime = 0;
 
 // Variables to limit triggers to 10 per second
-const int MAX_TRIGGERS_PER_SECOND = 10;
+const int MAX_TRIGGERS_PER_SECOND = 30;
 volatile int triggerCount = 0;
 
 // Function to toggle the output pins
@@ -45,7 +45,7 @@ void togglePin() {
   } else {
     // Keep the state LOW after 10 triggers
     if (state == HIGH) {
-      Serial.println("Reached 10Hz")
+      Serial.println("Reached 10Hz");
       state = LOW;
       digitalWrite(OUT_PIN1, LOW);
       digitalWrite(OUT_PIN2, LOW);
@@ -62,6 +62,7 @@ time_t getPPS() {
 
 // Interrupt function for PPS signal
 void ppsInterrupt() {
+  noInterrupts();
   unsigned long currentMicros = micros();
   if (currentMicros - ppsMicros > DEBOUNCE_TIME_US) {
     // Stop the timer
@@ -75,7 +76,7 @@ void ppsInterrupt() {
     ppsMicros = currentMicros;
 
     // Calculate drift (difference from expected interval)
-    long drift = (long)interval - (long)PPS_INTERVAL_US;
+    drift = (long)interval - (long)PPS_INTERVAL_US;
 
     // PID Controller for Drift Compensation
     float error = drift;                  // Current error
@@ -104,6 +105,7 @@ void ppsInterrupt() {
     // Restart the timer to trigger the cameras, limiting to 10 triggers per second
     timer.begin(togglePin, 100000 / MAX_TRIGGERS_PER_SECOND); // 100ms / 10 triggers = 10Hz
   }
+  interrupts();
 }
 
 // Setup function
@@ -141,19 +143,27 @@ void loop() {
     Serial.print("| Synchronized Time: ");
     Serial.print(synchronizedTime);
     Serial.print(" | Clock Factor: ");
-    Serial.println(clockFactor, 9);
+    Serial.print(clockFactor, 9);
+    Serial.print(" | Drift: ");
+    Serial.println(drift);
   }
   
   static time_t lastPrint = 0;
   time_t currentTime = now();
   
   if (currentTime != lastPrint) {
-    Serial.print("Current Time: ");
+    Serial.print("Time Now: ");
     Serial.print(hour());
     Serial.print(":");
     Serial.print(minute());
     Serial.print(":");
     Serial.println(second());
     lastPrint = currentTime;
+
+    // print hz
+    Serial.print("Hz: ");
+    Serial.println(triggerCount);
+
+
   }
 }

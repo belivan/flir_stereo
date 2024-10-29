@@ -20,7 +20,7 @@ void ppsInterrupt() {
   timer.end();                     // Stop the timer if it's running
   if (state == HIGH) { state = LOW; digitalWrite(outputPin1, state); digitalWrite(outputPin2, state);}            // If the state is HIGH, reset it to LOW
   
-  timer.begin(togglePin, 8333);    // Restart the timer with a 16.67ms period (60Hz)
+  timer.begin(togglePin, 8333*6);    // Restart the timer with a 16.67ms period (60Hz)
 }
 
 void setup() {
