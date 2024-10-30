@@ -27,81 +27,89 @@ ALLOBJ64 = $(patsubst %,$(OBJDIR)/%_64.o,$(COMMON_OBJBASE))
 ALLOBJ32_LINUX = $(patsubst %,$(OBJDIR)/%_Linux32.o,$(COMMON_OBJBASE))
 ALLOBJ64_LINUX = $(patsubst %,$(OBJDIR)/%_Linux64.o,$(COMMON_OBJBASE))
 
-OSNAME := $(shell uname)
-ifeq ($(OSNAME),Windows_NT)
+
+ifeq ($(OS),Windows_NT)
 	RM=del /S
+	PATHSEP_RAW=\\
 	target = FSLP_64.dll
-else ifeq ($(OSNAME),Linux)
-	RM=rm -f
-	target =  FSLP_64.so
-else
-#probably cygwin
-	RM=rm -f
-	target = FSLP_64.dll
+else 
+	OSNAME := $(shell uname)
+	ifeq ($(OSNAME),Linux)
+		RM=rm -f
+		PATHSEP_RAW=/
+		target =  FSLP_64.so
+	else
+	#probably cygwin
+		RM=rm -f
+		PATHSEP_RAW=/
+		target = FSLP_64.dll
+	endif
 endif
 
-all:
-	make $(target) 
+#Remove trailing space from PATHSEP_RAW
+PATHSEP=$(strip $(PATHSEP_RAW))
+
+all: $(target)
 
 $(OBJDIR):
-	mkdir obj
+	mkdir $(OBJDIR)
 
-obj/%_32.o: src/%.c  $(ALLDEPS)
+$(OBJDIR)/%_32.o: src/%.c  $(ALLDEPS)
 	$(CC) $(WARNINGS) -c -o $@ $< $(CFLAGS)
 
-obj/%_64.o: src/%.c  $(ALLDEPS)
+$(OBJDIR)/%_64.o: src/%.c  $(ALLDEPS)
 	$(CCwin64) -v -c -o $@ $< $(CFLAGS)
 
-obj/%_Linux32.o: src/%.c  $(ALLDEPS)
+$(OBJDIR)/%_Linux32.o: src/%.c  $(ALLDEPS)
 	$(CC) -g -fPIC $(WARNINGS) -shared -m32 -c -o $@ $< $(CFLAGS)
 
-obj/%_Linux64.o: src/%.c  $(ALLDEPS)
-	$(CC) -g -fPIC $(WARNINGS) -shared -c -o $@ $< $(CFLAGS)
+$(OBJDIR)/%_Linux64.o: src/%.c  $(ALLDEPS)
+	$(CC) -g -fPIC $(WARNINGS) -shared -m64 -c -o $@ $< $(CFLAGS)
 
-obj/%_32.o: src/win32/serialPortAdapter.c  $(ALLDEPS)
+$(OBJDIR)/%_32.o: src/win32/serialPortAdapter.c  $(ALLDEPS)
 	$(CC) $(WARNINGS) -c -o $@ $< $(CFLAGS)
 
-obj/%_64.o: src/win32/serialPortAdapter.c  $(ALLDEPS)
+$(OBJDIR)/%_64.o: src/win32/serialPortAdapter.c  $(ALLDEPS)
 	$(CCwin64) -v -c -o $@ $< $(CFLAGS)
 
-obj/%_Linux32.o: src/linux/serialPortAdapter.c   $(ALLDEPS)
+$(OBJDIR)/%_Linux32.o: src/linux/serialPortAdapter.c   $(ALLDEPS)
 	$(CC) -g -fPIC $(WARNINGS) -shared -m32 -c -o $@ $< $(CFLAGS)
 
-obj/%_Linux64.o: src/linux/serialPortAdapter.c  $(ALLDEPS)
-	$(CC) -g -fPIC $(WARNINGS) -shared -c -o $@ $< $(CFLAGS)
+$(OBJDIR)/%_Linux64.o: src/linux/serialPortAdapter.c  $(ALLDEPS)
+	$(CC) -g -fPIC $(WARNINGS) -shared -m64 -c -o $@ $< $(CFLAGS)
 
-obj/serialPort_32.o: src/win32/$(WIN32_SERIAL)  $(ALLDEPS)
+$(OBJDIR)/serialPort_32.o: src/win32/$(WIN32_SERIAL)  $(ALLDEPS)
 #	$(error "Windows library still under development")
 	$(CC) $(WARNINGS) -c -o $@ $< $(CFLAGS)
 
-obj/serialPort_64.o: src/win32/$(WIN32_SERIAL)  $(ALLDEPS)
+$(OBJDIR)/serialPort_64.o: src/win32/$(WIN32_SERIAL)  $(ALLDEPS)
 #	$(error "Windows library still under development")
 	$(CCwin64) -v -c -o $@ $< $(CFLAGS)
 
-obj/serialPort_Linux32.o: src/linux/$(LINUX_SERIAL)  $(ALLDEPS)
+$(OBJDIR)/serialPort_Linux32.o: src/linux/$(LINUX_SERIAL)  $(ALLDEPS)
 	$(CC) -g -fPIC $(WARNINGS) -shared -m32 -c -o $@ $< $(CFLAGS)
 
 # used to need this added when accidental namespace collision existed
 #-Derror=weird_name_to_resolve_name_conflict_error
-obj/serialPort_Linux64.o: src/linux/$(LINUX_SERIAL) $(ALLDEPS)
-	$(CC) -g -fPIC $(WARNINGS) -shared -c -o $@ $< $(CFLAGS) 
+$(OBJDIR)/serialPort_Linux64.o: src/linux/$(LINUX_SERIAL) $(ALLDEPS)
+	$(CC) -g -fPIC $(WARNINGS) -shared -m64 -c -o $@ $< $(CFLAGS) 
 	
 
-FSLP_32.dll: $(ALLOBJ32) obj/serialPort_32.o obj/serialPortAdapter_32.o
+FSLP_32.dll: $(ALLOBJ32) $(OBJDIR)/serialPort_32.o $(OBJDIR)/serialPortAdapter_32.o
 	$(CC) $(WARNINGS) -static-libgcc -shared -o $@ $^ 
 
-FSLP_64.dll: $(ALLOBJ64) obj/serialPort_64.o  obj/serialPortAdapter_64.o
-	$(CCwin64) -v -shared -o $@ $^ 
+FSLP_64.dll: $(ALLOBJ64) $(OBJDIR)/serialPort_64.o  $(OBJDIR)/serialPortAdapter_64.o
+	$(CCwin64) -v -shared -m64 -o $@ $^ 
 
-FSLP_32.so: $(ALLOBJ32_LINUX) obj/serialPort_Linux32.o obj/serialPortAdapter_Linux32.o
+FSLP_32.so: $(ALLOBJ32_LINUX) $(OBJDIR)/serialPort_Linux32.o $(OBJDIR)/serialPortAdapter_Linux32.o
 	$(CC) -g -fPIC $(WARNINGS) -shared -m32 -o $@ $^ 
 
-FSLP_64.so: $(ALLOBJ64_LINUX) obj/serialPort_Linux64.o obj/serialPortAdapter_Linux64.o
-	$(CC) -g -fPIC $(WARNINGS) -shared -o $@ $^ 
+FSLP_64.so: $(ALLOBJ64_LINUX) $(OBJDIR)/serialPort_Linux64.o $(OBJDIR)/serialPortAdapter_Linux64.o
+	$(CC) -g -fPIC $(WARNINGS) -shared -m64 -o $@ $^ 
 
 .PHONY: clean
 clean:
-	$(RM) obj/*.o
+	$(RM) $(OBJDIR)$(PATHSEP)*.o
 
 .PHONY: clean_fslp32
 clean_fslp32:

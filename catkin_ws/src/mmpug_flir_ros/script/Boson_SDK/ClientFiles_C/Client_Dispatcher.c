@@ -44,8 +44,9 @@ FLR_RESULT CLIENT_dispatcher_Tx(uint32_t seqNum, FLR_FUNCTION fnID, const uint8_
         *pyldPtr++ = *dataPtr++;
     }
     
-    uint8_t CommandChannel = 0x00;
-    SendToCamera(CommandChannel, sendBytes+12,sendPayload);
+    if(CLIENT_interface_writeFrame(sendPayload, sendBytes + 12) != FLR_OK)
+        return FLR_COMM_ERROR_WRITING_COMM;
+    
     return R_SUCCESS;
 }
 // Asynchronous (MultiService compatible) receive part
@@ -58,10 +59,17 @@ FLR_RESULT CLIENT_dispatcher_Rx(uint32_t *seqNum, uint32_t *fnID, const uint8_t 
     uint8_t *inPtr = (uint8_t *)receivePayload;
     
     *receiveBytes+=12;
-    uint8_t CommandChannel = 0x00;
-    ReadFrame(CommandChannel, receiveBytes,receivePayload);
-    if (*receiveBytes<12) ReadFrame(CommandChannel, receiveBytes,receivePayload);
-    if (*receiveBytes<12) return R_UART_RECEIVE_TIMEOUT;
+    if(CLIENT_interface_readFrame(receivePayload, receiveBytes) != FLR_OK)
+        return FLR_COMM_ERROR_READING_COMM;
+    
+    if (*receiveBytes < 12) {
+        if(CLIENT_interface_readFrame(receivePayload, receiveBytes) != FLR_OK)
+            return FLR_COMM_ERROR_READING_COMM;
+    }
+    
+    if (*receiveBytes < 12)
+        return FLR_COMM_ERROR_READING_COMM;
+    
     // Evaluate sequence bytes as UINT_32
     uint32_t returnSequence;
     byteToUINT_32( (const uint8_t *) inPtr, &returnSequence);

@@ -5,7 +5,6 @@ Created on Tue Feb  9 08:32:22 2016
 @author: jimamura
 """
 from enum import IntEnum
-SendToCameraList = []
 #FLR_RESULT names must be <= 40 characters!
 class FLR_RESULT(IntEnum) :
 #   0x0001 -> 0x00FF is allocated to Ben’s UART code (host & client)
@@ -66,6 +65,7 @@ class FLR_RESULT(IntEnum) :
     FLR_ILLEGAL_ADDRESS_ERROR         = 0x0208
     FLR_BAD_OUT_TYPE                  = 0x0209    #/*!< Incorrect ISP source */
     FLR_BAD_OUT_INTERFACE             = 0x020A    #/*!< Incorrect Output interface */
+    FLR_DEPRECATED_FUNCTION_ERROR     = 0x020B    #/*!< Camera deprecated function error */
 
     #/* Comm Errors */
     FLR_COMM_PORT_NOT_OPEN            = 0x0265  #/*!< Comm port not open */
@@ -128,3 +128,12 @@ class FLR_RESULT(IntEnum) :
 
     #/// Flash subsystem section
     FLR_FLASH_XX_ERROR                       = 1700
+
+    #/// Flash header subsystem section
+    FLR_FLASHHDR_ERASED                 = 1800 #/*!< Flash erased */
+    FLR_FLASHHDR_PARTIAL_WRITE          = 1801 #/*!< Error on writing header, only part of header has been written correctly */
+    FLR_FLASHHDR_WRONG_FOOTER_ID        = 1802 #/*!< Wrong footer ID */
+    FLR_FLASHHDR_WRONG_FOOTER_METADATA  = 1803 #/*!< Wrong footer metadata format */
+    FLR_FLASHHDR_WRONG_FOOTER_TYPE      = 1804 #/*!< Wrong footer type */
+    FLR_FLASHHDR_WRONG_HEADER_SIZE      = 1805 #/*!< Wrong size of header stored in the footer */
+    FLR_FLASHHDR_FOOTER_CRC_ERROR       = 1806 #/*!< Incorrect CRC in the footer */

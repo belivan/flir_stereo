@@ -85,7 +85,6 @@ static FLR_RESULT sendData(uint8_t* data, uint32_t data_len)
  * @brief Reset Data Service Client controller
 
  * Set default value in controller structure
- * @param none
  * @return none
  */
 static void resetController(void)
@@ -99,7 +98,6 @@ static void resetController(void)
  * @brief Initialization Data Service Client controller
 
  * Reset controller and callback function
- * @param none
  * @return none
  */
 static void initController(void)

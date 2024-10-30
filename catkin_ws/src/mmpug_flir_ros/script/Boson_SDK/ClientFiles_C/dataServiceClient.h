@@ -64,33 +64,28 @@ typedef void (*receive_callback) (uint32_t);
 
 /**
  * @brief Frame command definition
- * @var DATA_SEND - send data
- * @var DATA_ACK - send ACK response
- * @var COMMUNICATION_RESET - reset communication
 */
 typedef enum {
-    DATA_SEND = (uint8_t) 0,
-    DATA_ACK = (uint8_t) 1,
-    COMMUNICATION_RESET = (uint8_t) 2,
+    DATA_SEND = (uint8_t) 0,    ///< send data
+    DATA_ACK = (uint8_t) 1,     ///< send ACK response
+    COMMUNICATION_RESET = (uint8_t) 2,  ///< reset communication
     COMMUNICATION_RESET_ACK = (uint8_t) 3
 }dataServiceFrameCommand_t;
 
 /**
  * @brief Controller state definition
- * @var CONTROLLER_READY - controller is ready for action
- * @var CONTROLLER_ACK_WAIT - controller is busy
 */
 typedef enum {
-    CONTROLLER_READY = (uint8_t) 0,
-    CONTROLLER_ACK_WAIT = (uint8_t) 1
+    CONTROLLER_READY = (uint8_t) 0,     ///< controller is ready for action
+    CONTROLLER_ACK_WAIT = (uint8_t) 1   ///< controller is busy
 }dataServiceControllerState_t;
 
 /**
  * @brief Data Service Client controller structure
 */
 typedef struct {
-    uint16_t send_counter;                  /**< Send data counter */
-    uint16_t receive_counter;               /**< Received data counter */
+    uint16_t send_counter;          ///< Send data counter
+    uint16_t receive_counter;       ///< Received data counter
     dataServiceControllerState_t state;     /**< Controller state */
     receive_callback callback;              /**< Received data callback */
 } dataServiceController_t, *dataServiceController_p;
@@ -113,7 +108,6 @@ typedef struct {
  * @brief Initialization Data Service Client
 
  * Initalization service controller and receive data buffer
- * @param none
  * @return FLR_OK if successful else return error
  */
 FLR_RESULT dataServiceClientInit(void);
@@ -151,7 +145,6 @@ FLR_RESULT dataServiceClientRead(uint8_t* data, uint32_t data_len, uint32_t* dat
  * @brief Reset Data Service communication
 
  * Send reset command and reset controller parameters after ACK received
- * @param none
  * @return FLR_OK if successful else return error
  */
 FLR_RESULT dataServiceClientReset(void);

@@ -4,11 +4,11 @@
 
 
 from .Serializer_BuiltIn import UINT_32ToByte, byteToUINT_32
-from .ReturnCodes import FLR_RESULT, SendToCameraList
+from .ReturnCodes import FLR_RESULT
 from .EnumTypes import *
 import os
 
-def CLIENT_dispatch(seqNum, fnID, sendData,sendBytes,expectedReceiveBytes):
+def CLIENT_dispatch(seqNum, fnID, sendData, sendBytes, expectedReceiveBytes, fslp):
     # Allocate buffer with extra space for payload header
     sendPayload = bytearray(sendBytes+12)
     pyldPtr = 0
@@ -30,9 +30,9 @@ def CLIENT_dispatch(seqNum, fnID, sendData,sendBytes,expectedReceiveBytes):
         sendPayload[pyldPtr] = byte
         pyldPtr += 1
     
-    SendToCamera = SendToCameraList[0]
-    SendFrame = SendToCameraList[1]
-    ReadFrame = SendToCameraList[2]
+    SendToCamera = fslp.sendToCamera
+    SendFrame = fslp.sendFrame
+    ReadFrame = fslp.readFrame
     CommandChannel = 0x00
     #receivePayload = SendToCamera(sendPayload,sendBytes+12,expectedReceiveBytes+12)
     SendFrame(CommandChannel,sendPayload,sendBytes+12)

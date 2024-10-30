@@ -1,12 +1,14 @@
 #!/usr/bin/env python3
 
-import ctypes
+# import ctypes
+# ctypes.cdll.LoadLibrary("/home/anton/Thermal_Camera/catkin_ws/src/mmpug_flir_ros/script/Boson_SDK/FSLP_Files/FSLP_64.so")
+
 import os
 import rospy
 from flirpy.camera.boson import Boson
-import sys
+# import sys
 
-sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../script"))
+# sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../script"))
 
 from Boson_SDK import *
 
@@ -32,28 +34,20 @@ def resolve_serial_ports(serial_list):
 
 def get_nuc_type_for_camera(port):
     """Initialize a camera at a given port, get its NUC type, then close it."""
-    print("trying init pyclient")
-    print(f" Port: {port}\n") 
-    handle = pyClient.Initialize(manualport=port, useDll=False)
-    print("Initialized pyClient")
-    if not handle:
+    # handle = pyClient.Initialize(manualport=port)  # , useDll=False)
+    myCam = CamAPI.pyClient(manualport=port)
+    if not myCam:
         rospy.logwarn(f"Failed to initialize camera on port: {port}")
         return None
-
     try:
         # Get NUC type
-        result, nuc_type = pyClient.gaoGetNucType()
-        print("got result and nuc_type")
-        if result == 0:  # Assuming 0 indicates success
-            rospy.loginfo(f"Current NUC Type on {port}: {nuc_type}")
-            return nuc_type
-        else:
-            rospy.logwarn(f"Error retrieving NUC type on {port}: {result}")
-            return None
+        # result, nuc_type = pyClient.gaoGetNucType()
+        result, nuc_type = myCam.gaoGetNucType()
+        rospy.loginfo(f"Result on {port}: {result} and Current NUC Type : {nuc_type}")
     finally:
-        print("now trying close pyclient")
         # Ensure the camera is closed after retrieving the NUC type
-        pyClient.Close(handle)
+        # pyClient.Close(handle)
+        myCam.Close()
         rospy.loginfo(f"Closed camera on port: {port}")
 
 def main():
@@ -63,7 +57,7 @@ def main():
     rospy.loginfo("STARTING")
 
     # Get the list of serial ports from the launch file (for example, passed as a parameter)
-    serial_list = rospy.get_param('serial_list', ["flir_boson_serial_322008", "flir_boson_serial_322011"])
+    serial_list = rospy.get_param('serial_list', ["flir_boson_serial_34582"])  # ["flir_boson_serial_322008", "flir_boson_serial_322011"])
     rospy.loginfo(f"Received serial list: {serial_list}")
 
 
@@ -80,7 +74,7 @@ def main():
         try:
             camera = Boson(port=serial_port)
             cameras[serial_port] = camera
-            
+
             rospy.loginfo(f"Connected to camera on port: {serial_port}")
         except Exception as e:
             rospy.logerr(f"Failed to connect to camera on port {serial_port}: {e}")
@@ -91,13 +85,13 @@ def main():
         for port, camera in cameras.items():
             try:
                 camera.do_ffc()
-                
+
                 # Check if NUC table switch is desired
                 if camera.get_nuc_desired() == 1:
                     rospy.loginfo(f"NUC Table Switch Desired for camera on port: {port}. Switching NUC table.")
                     camera.do_nuc_table_switch()  # Perform the NUC table switch if needed
                     rospy.loginfo(f"NUC table updated for camera on port: {port}")
-                    
+
                     get_nuc_type_for_camera(port=port)
                 else:
                     get_nuc_type_for_camera(port=port)

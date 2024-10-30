@@ -92,7 +92,17 @@ void FSLP_flush_write_buffer(int32_t port_id)
         int32_t result;
         result = send_buffer(port_handles[port_id], frame_buf, (uint16_t) len); 
         FSLP_flush_write_buffer(port_id);
-        return result;
+        if (0==result)
+        {
+            // per serialPortAdapter.h, return num bytes sent
+            // send_buffer returns 0 for success, -1 for failure.
+            // Need to translate error space.
+            return len;
+        }
+        else
+        {
+            return 0;
+        }
     }
 #endif// WRITE_BUFFER_AS_SINGLE_BYTES vs frame writes
 

@@ -260,7 +260,7 @@ int32_t FSLP_read_frame(int32_t port_num,uint8_t channel_ID, uint16_t start_byte
         if (tempval<0) {
             clock_gettime(CLOCK_MONOTONIC, &current_t);
             elapsed_sec = diff_timespec(&current_t, &start_t);
-            DO_DEBUG_TRACE("Timeout in read_byte; current frame read time %f\n", elapsed_sec);
+            DO_VERBOSE_TRACE("Timeout in read_byte; current frame read time %f\n", elapsed_sec);
             DO_VERBOSE_TRACE("Continuing...\n");
             continue; //byte read timeout.
         } else {
@@ -272,16 +272,25 @@ int32_t FSLP_read_frame(int32_t port_num,uint8_t channel_ID, uint16_t start_byte
         {
             DO_DEBUG_TRACE("     StartByte time %f:\n     ",elapsed_sec);
 
+            DO_VERBOSE_TRACE("Setting timeout to FRAME_TIMEOUT_SEC=%f\n",FRAME_TIMEOUT_SEC);
             timeout = FRAME_TIMEOUT_SEC;
-            DO_VERBOSE_TRACE("Setting timeout to FRAME_TIMEOUT_SEC\n");
+            DO_VERBOSE_TRACE("Resetting start time from %f to %f\n",start_t,current_t);
+            start_t = current_t;
+            
             byte_idx = 0;
             do {
                 clock_gettime(CLOCK_MONOTONIC, &current_t);
                 elapsed_sec = diff_timespec(&current_t, &start_t);
                 if (elapsed_sec > timeout) {
+                    DO_DEBUG_TRACE("Abort waiting for channel ID at %f of %f seconds\n",elapsed_sec,timeout);
                     break;
                 }
                 tempval = read_single_byte(port_num);
+                if ( (tempval & 0xFF) == (START_FRAME_BYTE & 0xFF) )
+                {
+                    DO_DEBUG_TRACE("Weird Byte 0x%X\n",tempval);
+                    tempval = -1;
+                }
             } while (tempval < 0);
             if (tempval < 0) {
                 DO_VERBOSE_TRACE("Timeout in read_byte\n");
@@ -292,14 +301,21 @@ int32_t FSLP_read_frame(int32_t port_num,uint8_t channel_ID, uint16_t start_byte
             c = (uint8_t) tempval & 0xFF;
             uint8_t needs_escape = 0;
             if (c == ESCAPE_BYTE){
+                DO_DEBUG_TRACE("ESCAPE char before channel byte\n");
                 needs_escape = 1;
                 do {
                     clock_gettime(CLOCK_MONOTONIC, &current_t);
                     elapsed_sec = diff_timespec(&current_t, &start_t);
                     if (elapsed_sec > timeout) {
+                        DO_DEBUG_TRACE("Abort waiting for escaped channel ID at %f of %f seconds\n",elapsed_sec,timeout);
                         break;
                     }
                     tempval = read_single_byte(port_num);
+                    if ( (tempval & 0xFF) == (START_FRAME_BYTE & 0xFF) )
+                        {
+                            DO_DEBUG_TRACE("Escaped channel Byte 0x%X\n",tempval);
+                            tempval = -1;
+                        }
                 } while (tempval < 0);
                 if (tempval < 0) {
                     DO_VERBOSE_TRACE("Timeout in read_byte\n");
@@ -347,6 +363,7 @@ int32_t FSLP_read_frame(int32_t port_num,uint8_t channel_ID, uint16_t start_byte
                     clock_gettime(CLOCK_MONOTONIC, &current_t);
                     elapsed_sec = diff_timespec(&current_t, &start_t);
                     if (elapsed_sec>timeout) {
+                        DO_DEBUG_TRACE("Abort waiting for escaped normal byte at %f of %f seconds\n",elapsed_sec,timeout);
                         break;
                     }
                     tempval = read_single_byte(port_num);

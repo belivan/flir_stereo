@@ -1,23 +1,6 @@
 This Software Development Kit (SDK) is used for Command and Control operations with a FLIR Boson (or similar) camera.
 Commands (also refererred to as APIs) are provided for getting information from the camera (ex: serial number, image statistics, etc.) or for controlling camera operations (ex: change AGC settings, request table/gain switch, etc.)
 
-Installation and Upgrade Instructions
-
-1.            No direct installation required, multiple versions of SDK may be used simultaneously
-       �      Simply store in differently named folders
-2.            Unzip the SDK 
-       �      Avoid spaces in path names to prevent errors
-3.            Import the ClientFiles_* folder appropriate to the coding language
-       �      For Python import the SDK module itself and access the API commands via the "pyClient" object (see Quick Start below)
-       �      Python also requires the top level folder and __init__.py file (new for 2.0.6)
-4.            Import the FSLP_* library (.dll or .so) appropriate to the PC architecture 
-       �      Located in FSLP_Files folder
-       �      C# language uses a .NET serial port implementation instead of the pre-built DLL.
-       �      For Python this import is automatically done by the UART class located  in FSLP_Files/UART_HalfDuplex.py
-       �      May choose to modify and recompile library using source files instead.
-
-
-
 The SDK is broken into several hierarchical structures:
   1. API layer -- User-callable functions
   2. FLIR Binary Protocol (FBP) layer
@@ -50,7 +33,7 @@ Notes:
     Detailed documention for FSLP and FBP are contained in FLIR Document #102-9013-00.
     FSLP and COM layer are intended to be compiled into a dynamic library, and later linked into a specific API and FBP implementation.
     Python and C use one of the pre-compiled FSLP libraries from FSLP_Files.
-    Python has an experimental (and known buggy) re-implementation of FSLP logic using the default pySerial library (specify argument useDll=False for pyClient.Initialize())
+    Python has an experimental (and known incomplete) re-implementation of FSLP logic using the default pySerial library (specify argument useDll=False for pyClient.Initialize())
     C# uses a similar, but more complete native COM port implementation, but can be modified to use the same library as Python and C.
     C# is neither intended nor tested for usability in .NET Core for Linux compatibility. 
 
@@ -63,10 +46,10 @@ $ python3
 >>> import os
 >>> os.chdir("/home/username")
 >>> from BosonSDK import *
->>> myport = pyClient.Initialize(manualport="/dev/ttyUSB0") # or manualport="COM7" on Windows
->>> pyClient.bosonRunFFC()
->>> result, serialnumber = pyClient.bosonGetCameraSN()
->>> pyClient.Close(myport)
+>>> myCam = CamAPI.pyClient(manualport="/dev/ttyUSB0") # or manualport="COM7" on Windows
+>>> myCam.bosonRunFFC()
+>>> result, serialnumber = myCam.bosonGetCameraSN()
+>>> myCam.Close() # or myCam.closeComm() if you plan on reopening the connection later (i.e. does not free serial port instance)
 
 
 Re-compiling FSLP libraries:
@@ -82,7 +65,7 @@ $ make FSLP_32.dll
   - The SDK is delivered with libraries pre-compiled for most desktop architectures. Source code is provided to support embedded or non-standard environments.
   - Potential Makefile changes required:
     * If compiling on a different platform, the CC and CFLAGS variable along with the OSNAME logic may need to be updated.
-    * If changing the serial port library only, the LINUX_SERIAL or WI32_SERIAL variable will need to be updated.
+    * If changing the serial port library only, the LINUX_SERIAL or WIN32_SERIAL variable will need to be updated.
   - Potential Source code changes required:
     * If changing the serial port library, serialPortAdapter.c will need to rewritten to import and wrap the new library.
   - The Windows environment:

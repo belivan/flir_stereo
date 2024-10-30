@@ -63,6 +63,7 @@ enum _returnCodes {
     FLR_ILLEGAL_ADDRESS_ERROR                = 520U, // 0x00000208
     FLR_BAD_OUT_TYPE                         = 521U, // 0x00000209
     FLR_BAD_OUT_INTERFACE                    = 522U, // 0x0000020A
+    FLR_DEPRECATED_FUNCTION_ERROR            = 523U, // 0x0000020B
     FLR_COMM_PORT_NOT_OPEN                   = 613U, // 0x00000265
     FLR_COMM_INVALID_PORT_ERROR              = 614U, // 0x00000266
     FLR_COMM_RANGE_ERROR                     = 615U, // 0x00000267
@@ -98,6 +99,13 @@ enum _returnCodes {
     FLR_NET_XX_ERROR                         = 1500U, // 0x000005DC
     FLR_BT_XX_ERROR                          = 1600U, // 0x00000640
     FLR_FLASH_XX_ERROR                       = 1700U, // 0x000006A4
+    FLR_FLASHHDR_ERASED                      = 1800U, // 0x00000708
+    FLR_FLASHHDR_PARTIAL_WRITE               = 1801U, // 0x00000709
+    FLR_FLASHHDR_WRONG_FOOTER_ID             = 1802U, // 0x0000070A
+    FLR_FLASHHDR_WRONG_FOOTER_METADATA       = 1803U, // 0x0000070B
+    FLR_FLASHHDR_WRONG_FOOTER_TYPE           = 1804U, // 0x0000070C
+    FLR_FLASHHDR_WRONG_HEADER_SIZE           = 1805U, // 0x0000070D
+    FLR_FLASHHDR_FOOTER_CRC_ERROR            = 1806U, // 0x0000070E
 };
 typedef enum _returnCodes FLR_RESULT;
 

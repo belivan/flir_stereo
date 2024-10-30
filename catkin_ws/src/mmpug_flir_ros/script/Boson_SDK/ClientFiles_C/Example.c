@@ -1,5 +1,6 @@
 #include <stdio.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include "Client_API.h"
 #include "EnumTypes.h"
 #include "UART_Connector.h"
@@ -16,7 +17,7 @@ int main()
 	{
 		printf("Failed to initialize, exiting.\n");
 		Close();
-		return;
+		return EXIT_FAILURE;
 	}
 	printf("\n");
 	printf("CameraSN: ");
@@ -26,7 +27,7 @@ int main()
 	{
 		printf("Failed with status 0x%08X, exiting.\n",result);
 		Close();
-		return;
+		return EXIT_FAILURE;
 	}
 	printf(" %d \n", camera_sn);
 	
@@ -45,7 +46,7 @@ int main()
 	{
 		printf("Failed with status 0x%08X, exiting.\n",result);
 		Close();
-		return;
+		return EXIT_FAILURE;
 	}
 	printf(" %u.%u.%u \n", major,minor,patch);
 	
@@ -57,7 +58,7 @@ int main()
 	{
 		printf("Failed with status 0x%08X, exiting.\n",result);
 		Close();
-		return;
+		return EXIT_FAILURE;
 	}
 	printf(" \"%s\"", part_num.value);
 	for (idx=0; idx<sizeof(part_num); idx++)
@@ -85,7 +86,7 @@ int main()
 	{
 		printf("Failed with status 0x%08X, exiting.\n",result);
 		Close();
-		return;
+		return EXIT_FAILURE;
 	}
 	printf(" -- ");
 	for (idx=0; idx<256; idx++)
@@ -102,7 +103,7 @@ int main()
 	{
 		printf("Failed with status 0x%08X, exiting.\n",result);
 		Close();
-		return;
+		return EXIT_FAILURE;
 	}
 	printf("Success.\n");
 	
@@ -115,7 +116,7 @@ int main()
 	{
 		printf("Failed with status 0x%08X, exiting.\n",result);
 		Close();
-		return;
+		return EXIT_FAILURE;
 	}
 	printf("-- ");
 	for (idx=0; idx<64; idx++)
@@ -137,7 +138,7 @@ int main()
 	{
 		printf("Failed with status 0x%08X, exiting.\n",result);
 		Close();
-		return;
+		return EXIT_FAILURE;
 	}
 	printf("success.\n");
 	
@@ -149,7 +150,7 @@ int main()
 	{
 		printf("Failed with status 0x%08X, exiting.\n",result);
 		Close();
-		return;
+		return EXIT_FAILURE;
 	}
 	for (idx=0; idx<64; idx++)
 	{
@@ -167,7 +168,7 @@ int main()
 	{
 		printf("Failed with status 0x%08X, exiting.\n",result);
 		Close();
-		return;
+		return EXIT_FAILURE;
 	}
 	printf("success.\n");
 	
@@ -176,6 +177,6 @@ int main()
 	
 	printf("\n\nClosing...\n");
 	Close();
-	return;
+	return EXIT_SUCCESS;
 
 }

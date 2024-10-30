@@ -18,6 +18,8 @@ class UART():
         self.isClosed = False
         self.portOpen = False
         self.port_num = -1
+        self._default_timeout_ms = 1000
+        self.current_timeout_ms = self._default_timeout_ms
         if (not "posix" in os.name):
             dll_name = "FSLP_64.dll"
         else:
@@ -46,6 +48,24 @@ class UART():
             print("filePath = {!s}".format(os.path.dirname(__file__)))
             print("dllName = {!s}".format(dll_name))
             raise e
+    
+    def SetTimeout(self,timeout):
+        ''' Set the timeout for an FSLP command to respond with the first byte.
+        Allowable range is 1 to 65535 ms. 
+        Default is 1000, controlled by _default_timeout_ms.
+        '''
+        if timeout==abs(int(timeout )) and timeout <=65535:
+            self.current_timeout_ms = timeout
+        else:
+            raise ValueError("timeout={} is not an integer number of milliseconds between 1-65535".format(timeout))
+    
+    def UnsetTimeout(self):
+        ''' Set the timeout for FSLP command back to default value. '''
+        if self._default_timeout_ms==abs(int(self._default_timeout_ms )) and self._default_timeout_ms <=65535:
+            self.current_timeout_ms = self._default_timeout_ms
+        else:
+            raise ValueError("Somehow you corrupted the self._default_timeout_ms")
+    
     def SendToCamera(self,ClientToCam,clientBytes,expectedReceiveBytes):
         ''' Send ClientToCam with len()=clientBytes to camera, 
         receive CamToClient with len()=camBytes
@@ -72,9 +92,7 @@ class UART():
             raise Exception("Attempting to access closed DLL or closed COM port!")
     
     def SendFrame(self,ChannelID,ClientToCam,clientBytes):
-        ''' Send ClientToCam with len()=clientBytes to camera, 
-        receive CamToClient with len()=camBytes
-        '''
+        ''' Send ClientToCam with len()=clientBytes to camera on specified Channel ID.'''
         if (not self.isClosed) and self.portOpen:
             sendBuffer = (ctypes.c_uint8*clientBytes)()
             for i,dat in enumerate(ClientToCam):
@@ -86,14 +104,14 @@ class UART():
             raise Exception("Attempting to access closed DLL or closed COM port!")
     
     def ReadFrame(self,ChannelID,expectedReceiveBytes):
-        ''' Send ClientToCam with len()=clientBytes to camera, 
-        receive CamToClient with len()=camBytes
+        ''' Receive CamToClient with len()=camBytes from camera on specified Channel ID.
+        self.current_timeout_ms (default 1000) will set a timeout in milliseconds (for the first byte).
         '''
         if (not self.isClosed) and self.portOpen:
             receiveBuffer = (ctypes.c_uint8*2048)(*[0xFF]*2048)
             receiveBytes = ctypes.c_uint16(expectedReceiveBytes)
             channel_ID = ctypes.c_uint8(ChannelID)
-            start_byte_ms = ctypes.c_uint16(1000)
+            start_byte_ms = ctypes.c_uint16(self.current_timeout_ms)
             self.camread(ctypes.c_int32(self.port_num),channel_ID,start_byte_ms,ctypes.byref(receiveBytes),receiveBuffer)
             returnBuffer = []
             for i in range(receiveBytes.value):
@@ -176,9 +194,8 @@ class UART():
         try: 
             portnum = int(portname)
         except ValueError:
-            portbuffer  = (ctypes.c_uint8*32)()
+            portbuffer  = (ctypes.c_uint8*16)()
             for i,dat in enumerate(portname.encode('ascii')):
-#                print(i, dat)
                 portbuffer[i] = dat
             
             portnum = self.lookup_port_name(portbuffer,len(portname))
@@ -197,7 +214,7 @@ class UART():
             self.portOpen = True
             print("Port open")
         else:
-            raise IOError("Failed to open COM port {:d}!".format(ret))
+            raise IOError("Failed to open port #{:d} with error {:d}!".format(portnum,ret))
     
     def ClosePort(self):
         self.port_close(ctypes.c_int32(self.port_num))
@@ -275,6 +292,17 @@ class PyUART():
         for cur_byte in buffer[:count]:
             crc = self.ByteCRC16(cur_byte, crc)
         return crc
+
+    def SetTimeout(self,timeout):
+        ''' Set the timeout for an FSLP command to respond with the first byte.
+        Allowable range is 1 to 65535 ms. 
+        Default is 1000, controlled by _default_timeout_ms.
+        '''
+        print("Timeouts not supported in pyUART. yet...")
+
+    def UnsetTimeout(self):
+        ''' Set the timeout for FSLP command back to default value. '''
+        print("Timeouts not supported in pyUART. yet...")
 
     def SendToCamera(self,ClientToCam,clientBytes,expectedReceiveBytes):
         raise Exception("SendToCamera not currently implemented for PyUART")
