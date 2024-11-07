@@ -56,7 +56,7 @@ def main():
     rospy.loginfo("STARTING")
 
     # Get the list of serial ports from the launch file (for example, passed as a parameter)
-    serial_list = rospy.get_param('serial_list', ["flir_boson_serial_34582"])  # ["flir_boson_serial_322008", "flir_boson_serial_322011"])
+    serial_list = rospy.get_param('~serial_list')  #, ["flir_boson_serial_34582"])  # ["flir_boson_serial_322008", "flir_boson_serial_322011"])
     rospy.loginfo(f"Received serial list: {serial_list}")
 
 
@@ -90,27 +90,34 @@ def main():
                 camera.do_ffc()
             except Exception as e:
                 rospy.logerr(f"Failed FFC on camera {port}: {e}")
-            
+
+            try:
+                # Setting NUC to type 1
+                result = cameras_boson_sdk[port].gaoSetNucType(FLR_GAO_NUC_TYPE_E.FLR_GAO_NUC_TYPE_TWO_POINT_FIELD)
+                rospy.loginfo(f"Result on {port}: {result} and NUC Type set to 1")
+            except Exception as e:
+                rospy.logerr(f"Failed to set NUC on camera {port}: {e}")
+
             try:
                 # Check if NUC table switch is desired
                 if camera.get_nuc_desired() == 1:
                     rospy.loginfo(f"NUC Table Switch Desired for camera on port: {port}. Switching NUC table.")
-                    
+
                     camera.do_nuc_table_switch()  # Perform the NUC table switch if needed
                     result, nuc_type = cameras_boson_sdk[port].gaoGetNucType()
-                    
+
                     rospy.loginfo(f"Result on {port}: {result} and Current NUC Type : {nuc_type}")
                 else:
                     rospy.loginfo(f"NUC Table Switch NOT Desired for camera on port: {port}.")
                     result, nuc_type = cameras_boson_sdk[port].gaoGetNucType()
-                    
+
                     rospy.loginfo(f"Result on {port}: {result} and Current NUC Type : {nuc_type}")
 
             except Exception as e:
                 rospy.logerr(f"Failed NUC on camera {port}: {e}")
 
     # Set the loop rate to trigger FFC every 3 minutes (every 10 secs now)
-    rate = rospy.Rate(1/20)  # 1/180 Hz = once every 180 seconds = 3 minutes
+    rate = rospy.Rate(1/180)  # 1/180 Hz = once every 180 seconds = 3 minutes
     first = True
 
     # Trigger FFC in an infinite loop

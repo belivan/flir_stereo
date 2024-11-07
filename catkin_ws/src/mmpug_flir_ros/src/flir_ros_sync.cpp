@@ -1,15 +1,26 @@
 #include "../include/flir_ros_sync.h"
 #include <asm/types.h>
 #include <fcntl.h>
-#include <pluginlib/class_list_macros.h>
-#include <sensor_msgs/CameraInfo.h>
-#include <sensor_msgs/Image.h>
-#include <sensor_msgs/image_encodings.h>
+//#include <pluginlib/class_list_macros.h>
+#include <sensor_msgs/msg/camera_info.hpp>
+#include <sensor_msgs/msg/image.hpp>
+// #include <sensor_msgs/msg/image_encodings.hpp>
 #include <sys/ioctl.h>
 #include <sys/mman.h>
 #include <stdlib.h> // for char *realpath(const char *restrict path, char *restrict resolved_path); to read symlink for thermal serial
 #include <chrono>
 #include "rawBoson.h"
+
+#include <tf2/LinearMath/Quaternion.h>
+#include <tf2/LinearMath/Vector3.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+
+
+#define LOG_INFO(...) RCLCPP_INFO(this->get_logger(), __VA_ARGS__)
+#define LOG_INFO_STREAM(args...) RCLCPP_INFO_STREAM(this->get_logger(), args)
+#define LOG_FATAL(...) RCLCPP_FATAL(this->get_logger(), __VA_ARGS__)
+typedef rclcpp::Time RosTime;  // not used really
+
 
 // https://linuxtv.org/downloads/v4l-dvb-apis/uapi/v4l/capture.c.html
 // http://jwhsmith.net/2014/12/capturing-a-webcam-stream-using-v4l2/
@@ -17,29 +28,43 @@
 #define CHECK_FATAL(x, err)    \
   if ((x))                     \
   {                            \
-    NODELET_FATAL_STREAM(err); \
+    LOG_FATAL_STREAM(err); \
     return;                    \
   }
 
-PLUGINLIB_EXPORT_CLASS(flir_ros_sync::FlirRos, nodelet::Nodelet)
+#if defined(IS_ROS1)
+PLUGINLIB_EXPORT_CLASS(flir_ros_sync::FlirRos, LOG::LOG)
+#elif defined(IS_ROS2)
+RCLCPP_COMPONENTS_REGISTER_NODE(flir_ros_sync::FlirRos)
+#endif
 
 namespace flir_ros_sync
 {
-  void FlirRos::onInit()
+  std::shared_ptr<FlirRos> FlirRos::onInit(const rclcpp::NodeOptions & options)
   {
-    NODELET_INFO("IInitializing flir ros node");
+      // TODO: This might not work at all
+      auto node = std::make_shared<FlirRos>(options);
+      // Start the stream thread
+      node->stream_thread = std::thread(&FlirRos::streaming_loop, node);
+      return node;
+  }
 
-    // get ros node handle
-    nh = getNodeHandle();
-    private_nh = getPrivateNodeHandle();
+  FlirRos::FlirRos(const rclcpp::NodeOptions & options)
+  : Node("flir_ros_sync", options)
+  {
+    LOG_INFO("Initializing FLIR ROS2 Node");
 
     // unpack device_name symlink
+    this->declare_parameter<std::string>("device_name", "/dev/video0");
     std::string deviceName;
-    private_nh.getParam("device_name", deviceName);
+    this->get_parameter("device_name", deviceName);
+
     char deviceNameRoot[1024];
     char *deviceResult = realpath(deviceName.c_str(), deviceNameRoot);
     CHECK_FATAL(!deviceResult, "Serial port " << deviceName << " cannot be resolved!");
-    NODELET_INFO_STREAM("Serial port " << deviceName << " resolved to " << deviceNameRoot);
+    LOG_INFO_STREAM("Serial port " << deviceName << " resolved to " << deviceNameRoot);
+    
+    // TODO: get_ros_param(); // get the ros paramters from launch file
     get_ros_param(); // get the ros paramters from launch file
 
     // 1. Try to open the device
@@ -55,27 +80,36 @@ namespace flir_ros_sync
                 "Device can't stream video!");
 
     // 3. Set the device format (default is raw)
-    private_nh.param("publish_image_sharing_every_n", publish_image_sharing_every_n, publish_image_sharing_every_n);
-    private_nh.param("raw", raw, raw);
+    this->declare_parameter<int>("publish_image_sharing_every_n", publish_image_sharing_every_n);
+    this->declare_parameter<bool>("raw", true);
+
+    this->get_parameter("publish_image_sharing_every_n", publish_image_sharing_every_n);
+    this->get_parameter("raw", raw);
+
     CHECK_FATAL(!set_format(fd, raw), "Unable to set video format!");
 
     // 4. unpack serial_port symlink
+    this->declare_parameter<std::string>("serial_port");
     std::string serialPort;
-    private_nh.getParam("serial_port", serialPort);
+    this->get_parameter("serial_port", serialPort);
     char serialPortRoot[1024];
     char *serialResult = realpath(serialPort.c_str(), serialPortRoot);
     CHECK_FATAL(!serialResult, "Serial port " << serialPort << " cannot be resolved!");
-    NODELET_INFO_STREAM("Serial port " << serialPort << " resolved to " << serialPortRoot);
+    LOG_INFO_STREAM("Serial port " << serialPort << " resolved to " << serialPortRoot);
 
     // 6. set gain mode and FFC(flat field correction, regarding image global illumination) mode
-    private_nh.param("gain_mode", gain_mode, gain_mode);
-    private_nh.param("ffc_mode", ffc_mode, ffc_mode);
+    this->declare_parameter<int>("gain_mode", gain_mode);
+    this->declare_parameter<int>("ffc_mode", ffc_mode);
+    this->get_parameter("gain_mode", gain_mode);
+    this->get_parameter("ffc_mode", ffc_mode);
+
     set_gain_mode(gain_mode, serialPortRoot);
     set_ffc_mode(ffc_mode, serialPortRoot);
     shutter(serialPortRoot); // Best practice: set FFC mode to manual and do FFC only once during initialization
 
     // 7. get signed timestamp offset in seconds, true capture time = message receival time + offset, should be negative if message arrive later than capture
-    private_nh.param("timestamp_offset", timestampOffset, timestampOffset);
+    this->declare_parameter<float>("timestamp_offset", timestampOffset);
+    this->get_parameter("timestamp_offset", timestampOffset);
 
     // 8. Initialize the buffers (mmap)
     CHECK_FATAL(!request_buffers(fd), "Requesting buffers failed!");
@@ -83,15 +117,35 @@ namespace flir_ros_sync
     // 9. Start streaming
     CHECK_FATAL(!start_streaming(fd), "Stream start failed!");
 
-    NODELET_INFO("Ready to start streaming camera!");
+    LOG_INFO("Ready to start streaming camera!");
     stream = true;
 
     // 10. Set up ROS publishers, now that we're confident we can stream.
+    // TODO: setup_ros();
     setup_ros();
+  }
 
-    stream_thread = std::thread([&]()
-                                {
-    NODELET_INFO("Starting thread!");
+  FlirRos::~FlirRos()
+  {
+    LOG_INFO("Destructor called");
+
+    stream.store(false);
+    if (stream_thread.joinable())
+    {
+      stream_thread.join();
+    }
+
+    enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+    CHECK_FATAL(ioctl(fd, VIDIOC_STREAMOFF, &type) < 0,
+                "Couldn't properly close the stream!");
+    }
+
+#endif
+
+
+  void FlirRos::streaming_loop()
+  {
+    LOG_INFO("Starting thread!");
     struct v4l2_buffer bufferinfo;
     CLEAR(bufferinfo);
     bufferinfo.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -103,14 +157,14 @@ namespace flir_ros_sync
 
     while (stream.load()) {
       if (ioctl(fd, VIDIOC_QBUF, &bufferinfo) < 0) {
-        NODELET_INFO("Couldn't queue :(");
-        NODELET_INFO_STREAM("Error: " << std::string(strerror(errno)));
+        LOG_INFO("Couldn't queue :(");
+        LOG_INFO_STREAM("Error: " << std::string(strerror(errno)));
         break;  // Couldn't queue anymore
       }
 
       if (ioctl(fd, VIDIOC_DQBUF, &bufferinfo) < 0) {
-        NODELET_INFO("Couldn't dequeue :(");
-        NODELET_INFO_STREAM("Error: " << std::string(strerror(errno)));
+        LOG_INFO("Couldn't dequeue :(");
+        LOG_INFO_STREAM("Error: " << std::string(strerror(errno)));
         break;  // Couldn't de-queue
       }
 
@@ -119,7 +173,7 @@ namespace flir_ros_sync
       // if (std::chrono::duration_cast<std::chrono::seconds>(now - last_ffc_time).count() >= 30) {
       //     // Trigger FFC
       //     shutter(serialPortRoot);
-      //     NODELET_INFO("FFC triggered");
+      //     LOG_INFO("FFC triggered");
 
       //     // Update the last FFC trigger time
       //     last_ffc_time = now;
@@ -127,10 +181,10 @@ namespace flir_ros_sync
 
       // TODO(vasua): Publish diagnostic msgs here.
 
-        count=count+1;
+      count=count+1;
       if(count%send_every_n==0)
       { 
-        ros::Time frame_time;
+        rclcpp::Time frame_time; // note: ros::Time depends on ROS version
         get_frame_time(frame_time);
 
         publish_frame(bufferinfo.bytesused, frame_time);
@@ -139,7 +193,7 @@ namespace flir_ros_sync
         publish_transforms(frame_time);
       }
       
-    } });
+    }
   }
 
   bool FlirRos::set_format(int fd, bool raw)
@@ -163,8 +217,8 @@ namespace flir_ros_sync
     // Actually set the video mode
     if (ioctl(fd, VIDIOC_S_FMT, &format) < 0)
     {
-      NODELET_ERROR("VIDIOC_S_FMT");
-      NODELET_ERROR_STREAM("Error: " << std::string(strerror(errno)));
+      LOG_ERROR("VIDIOC_S_FMT");
+      LOG_ERROR_STREAM("Error: " << std::string(strerror(errno)));
       return false;
     }
 
@@ -181,12 +235,12 @@ namespace flir_ros_sync
 
     if (ioctl(fd, VIDIOC_REQBUFS, &req) < 0)
     {
-      NODELET_ERROR("VIDIOC_REQBUFS");
-      NODELET_ERROR_STREAM("Error: " << std::string(strerror(errno)));
+      LOG_ERROR("VIDIOC_REQBUFS");
+      LOG_ERROR_STREAM("Error: " << std::string(strerror(errno)));
       return false;
     }
 
-    NODELET_INFO_STREAM("Device requested " << req.count << " buffers!");
+    LOG_INFO_STREAM("Device requested " << req.count << " buffers!");
     // The device only requests a single buffer in both cases.
 
     struct v4l2_buffer query_buffer;
@@ -197,8 +251,8 @@ namespace flir_ros_sync
 
     if (ioctl(fd, VIDIOC_QUERYBUF, &query_buffer) < 0)
     {
-      NODELET_ERROR("VIDIOC_QUERYBUF");
-      NODELET_ERROR_STREAM("Error: " << std::string(strerror(errno)));
+      LOG_ERROR("VIDIOC_QUERYBUF");
+      LOG_ERROR_STREAM("Error: " << std::string(strerror(errno)));
       return false;
     }
 
@@ -209,13 +263,13 @@ namespace flir_ros_sync
 
     if (buffer == MAP_FAILED)
     {
-      NODELET_ERROR("MAP_FAILED");
-      NODELET_ERROR_STREAM("Error: " << std::string(strerror(errno)));
+      LOG_ERROR("MAP_FAILED");
+      LOG_ERROR_STREAM("Error: " << std::string(strerror(errno)));
       return false;
     }
 
     memset(buffer, 0, query_buffer.length);
-    NODELET_INFO("Allocated buffer of size %d KB", query_buffer.length / 1024);
+    LOG_INFO("Allocated buffer of size %d KB", query_buffer.length / 1024);
     return true;
   }
 
@@ -224,8 +278,8 @@ namespace flir_ros_sync
     enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     if (ioctl(fd, VIDIOC_STREAMON, &type) < 0)
     {
-      NODELET_ERROR("VIDIOC_STREAMON");
-      NODELET_ERROR_STREAM("Error: " << std::string(strerror(errno)));
+      LOG_ERROR("VIDIOC_STREAMON");
+      LOG_ERROR_STREAM("Error: " << std::string(strerror(errno)));
       return false;
     }
 
@@ -242,37 +296,65 @@ namespace flir_ros_sync
 
   void FlirRos::get_ros_param()
   {
+  #if defined(IS_ROS1)
     private_nh.getParam("camera_name", camera_name);
     private_nh.getParam("intrinsic_url", intrinsic_url);
     private_nh.getParam("width", width);
     private_nh.getParam("height", height);
     private_nh.getParam("use_ext_sync", use_ext_sync);
     private_nh.getParam("send_every_n", send_every_n);
+  #elif defined(IS_ROS2)
+    this->declare_parameter<std::string>("camera_name", "flir");
+    this->declare_parameter<std::string>("intrinsic_url", "package://flir_ros_sync/config/flir_intrinsics.yaml");
+    this->declare_parameter<int>("width", 640);
+    this->declare_parameter<int>("height", 512);
+    this->declare_parameter<int>("use_ext_sync", 1);
+    this->declare_parameter<int>("send_every_n", 1);
+
+    this->get_parameter("camera_name", camera_name);
+    this->get_parameter("intrinsic_url", intrinsic_url);
+    this->get_parameter("width", width);
+    this->get_parameter("height", height);
+    this->get_parameter("use_ext_sync", use_ext_sync);
+    this->get_parameter("send_every_n", send_every_n);
+  #endif
   }
 
   void FlirRos::setup_ros()
   {
     setup_ros_names();
 
+  #if defined(IS_ROS1)
     it.reset(new image_transport::ImageTransport(nh));
     cinfo.reset(new camera_info_manager::CameraInfoManager(nh));
+
+    object_detection::disable_transports(&nh, camera_topic_name);
+    object_detection::disable_transports(&nh, rect_topic_name);
+  
+  #elif defined(IS_ROS2)
+    it = std::make_shared<image_transport::ImageTransport>(shared_from_this());
+    cinfo = std::make_shared<camera_info_manager::CameraInfoManager>(shared_from_this());
+
+    // TODO: update the function to use ROS2
+    object_detection::disable_transports(shared_from_this(), camera_topic_name);
+    object_detection::disable_transports(shared_from_this(), rect_topic_name);
+  #endif
 
     // load camera intrinsics paramters to camera_info_manager
     cinfo->setCameraName(camera_name);
     cinfo->loadCameraInfo(intrinsic_url);
+  
+    image_pub = it->advertiseCamera(camera_topic_name, 10);
+    rect_image_pub = it->advertise(rect_topic_name, 10);
 
-    object_detection::disable_transports(&nh, camera_topic_name);
-    object_detection::disable_transports(&nh, rect_topic_name);
-    image_pub = it->advertiseCamera(camera_topic_name, 1);
-    rect_image_pub = it->advertise(rect_topic_name, 1);
-    std::vector<std::string> topic_names;
-    topic_names.push_back(("nv_" + camera_name));
-    // nv_image_pub = new nv2ros::Publisher(nh, topic_names);
+    // std::vector<std::string> topic_names;
+    // topic_names.push_back(("nv_" + camera_name));
+    // nv_image_pub = new nv2ros::Publisher(nh, topic_names);  // not used
   }
 
-  sensor_msgs::ImagePtr FlirRos::rectify_image(
-      const sensor_msgs::ImageConstPtr &image_msg,
-      const sensor_msgs::CameraInfoConstPtr &cam_info_ptr)
+  sensor_msgs::msg::Image::SharedPtr FlirRos::rectify_image(
+      const sensor_msgs::msg::Image::ConsSharedtPtr& image_msg,
+      const sensor_msgs::msg::CameraInfo::ConstSharedPtr& cam_info_ptr)
   {
     // update camera info
     cam_model.fromCameraInfo(cam_info_ptr);
@@ -284,13 +366,13 @@ namespace flir_ros_sync
     cam_model.rectifyImage(image, rect_image, CV_INTER_LINEAR);
 
     // publish the rectified image
-    sensor_msgs::ImagePtr rect_msg =
+    sensor_msgs::msg::Image::SharedPtr rect_msg =
         cv_bridge::CvImage(image_msg->header, image_msg->encoding, rect_image)
             .toImageMsg();
     return rect_msg;
   }
 
-  void FlirRos::get_frame_time(ros::Time &frame_time)
+  void FlirRos::get_frame_time(rclcpp::Time &frame_time)
   {
     if (use_ext_sync)
     {
@@ -305,22 +387,24 @@ namespace flir_ros_sync
       uint32_t trigger_nsec = static_cast<uint32_t>(system_nsec) - (static_cast<uint32_t>(system_nsec) % one_tenth_nsec) + static_cast<uint32_t>(timestampOffset * 1e9);
 
       // Handle potential overflow of nanoseconds
-      if (trigger_nsec >= 1e9) {
-        trigger_nsec -= 1e9;
+      if (trigger_nsec >= 1000000000) {
+        trigger_nsec -= 1000000000;
         system_sec += 1;
       }
 
-      frame_time = ros::Time(static_cast<uint32_t>(system_sec), static_cast<uint32_t>(trigger_nsec));
+      // changed from uint32_t to uint64_t
+      frame_time = rclcpp::Time(static_cast<uint64_t>(system_sec), 
+                                static_cast<uint64_t>(trigger_nsec));
     }
     else
     {
-      frame_time = ros::Time::now();
+      frame_time = this->now();
     }
   }
 
-  void FlirRos::publish_frame(uint32_t bytes_used, ros::Time time)
+  void FlirRos::publish_frame(uint32_t bytes_used, rclcpp::Time time)
   {
-    sensor_msgs::ImagePtr img(new sensor_msgs::Image);
+    sensor_msgs::msg::Image::SharedPtr img(new sensor_msgs::msg::Image);
     img->width = width;
     img->height = height;
     img->is_bigendian = false; // hopefully
@@ -328,14 +412,15 @@ namespace flir_ros_sync
     img->header.frame_id = img_opt_frame_id;
 
     // get current camera info data and set header
-    sensor_msgs::CameraInfoPtr cam_info_ptr(new sensor_msgs::CameraInfo(cinfo->getCameraInfo()));
+    sensor_msgs::msg::CameraInfo::SharedPtr cam_info_ptr(new sensor_msgs::msg::CameraInfo(cinfo->getCameraInfo()));
     cam_info_ptr->header.frame_id = img_opt_frame_id;
     cam_info_ptr->header.stamp = img->header.stamp;
 
     if (raw)
     {                        // Can publish image directly, don't need opencv.
       img->step = width * 2; // 2 bytes per pixel
-      img->encoding = sensor_msgs::image_encodings::TYPE_16UC1;
+      // img->encoding = sensor_msgs::image_encodings::TYPE_16UC1;
+      img->encoding = "16UC1";
       img->data.insert(img->data.begin(), reinterpret_cast<char *>(buffer),
                        reinterpret_cast<char *>(buffer) + bytes_used);
 
@@ -404,7 +489,9 @@ namespace flir_ros_sync
       cv::cvtColor(luma, rgb, cv::COLOR_YUV2RGB_I420);
 
       img->step = width * bytes_per_pixel;
-      img->encoding = sensor_msgs::image_encodings::RGB8;
+      // img->encoding = sensor_msgs::image_encodings::RGB8;
+      img->encoding = "rgb8";
+
       /*if (publish_image_sharing_every_n < 1000)
       {
         static nv2ros::NvImageMessage nv_image_message(width, height, time);
@@ -447,45 +534,30 @@ namespace flir_ros_sync
     // rect_image_pub.publish(rect_msg);
   }
 
-  void FlirRos::publish_transform(const ros::Time &time, const tf::Vector3 &trans,
-                                  const tf::Quaternion &q,
+  void FlirRos::publish_transform(const rclcpp::Time &time, const tf::Vector3 &trans,
+                                  const tf2::Quaternion &q,
                                   const std::string &from,
                                   const std::string &to)
   {
-    geometry_msgs::TransformStamped msg;
+    geometry_msgs::msg::TransformStamped msg;
     msg.header.stamp = time;
     msg.header.frame_id = from;
     msg.child_frame_id = to;
 
-    tf::vector3TFToMsg(trans, msg.transform.translation);
-    tf::quaternionTFToMsg(q, msg.transform.rotation);
+    msg.transform.translation = tf2::toMsg(trans);
+    msg.transform.rotation = tf2::toMsg(q);
     br.sendTransform(msg);
   }
 
-  void FlirRos::publish_transforms(const ros::Time &time)
+  void FlirRos::publish_transforms(const rclcpp::Time &time)
   {
-    tf::Quaternion quaternion_optical;
+    tf2::Quaternion quaternion_optical;
     quaternion_optical.setRPY(-M_PI / 2, 0.0, -M_PI / 2);
-    const tf::Vector3 zero_translation{0, 0, 0};
+    const geometry_msgs::msg::Vector3 zero_translation{0, 0, 0};
 
     // Set camera link as Z upward, X to front and Y to left
     // Set optical frame as Z forward, X to right and Y downward
     publish_transform(time, zero_translation, quaternion_optical, base_frame_id,
                       img_opt_frame_id);
-  }
-
-  FlirRos::~FlirRos()
-  {
-    NODELET_INFO("Destructor called");
-
-    if (stream)
-    {
-      stream = false;
-      stream_thread.join();
-
-      enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-      CHECK_FATAL(ioctl(fd, VIDIOC_STREAMOFF, &type) < 0,
-                  "Couldn't properly close the stream!");
-    }
   }
 } // namespace flir_ros_sync

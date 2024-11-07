@@ -1,18 +1,28 @@
 #ifndef FLIR_ROS_SYNC_H
 #define FLIR_ROS_SYNC_H
 
-#include "./fd_guard.h"
-#include <linux/videodev2.h>
-#include <nodelet/nodelet.h>
-#include <ros/ros.h>
+#include <memory>
+
+// #if defined(IS_ROS1)
+// #include <nodelet/nodelet.h>
+// #include <ros/ros.h>
+// #include <pluginlib/class_list_macros.h>
+// #elif defined(IS_ROS2)
+#include <rclcpp/rclcpp.hpp>
+#include <rclcpp_components/register_node_macro.hpp>
+// #endif
+
 #include <atomic>
 #include <thread>
 
-#include <camera_info_manager/camera_info_manager.h>
+#include <camera_info_manager/camera_info_manager.hpp>
 #include <image_geometry/pinhole_camera_model.h>
 #include <image_transport/image_transport.h>
-#include <tf/transform_broadcaster.h>
+#include <tf2_ros/transform_broadcaster.h>
 #include <ctime>
+
+#include "./fd_guard.h"
+#include <linux/videodev2.h>
 
 #include <opencv2/opencv.hpp>
 
@@ -23,28 +33,41 @@
 
 namespace flir_ros_sync {
 
-class FlirRos : public nodelet::Nodelet {
+class FlirRos
+// #if defined(IS_ROS1)
+//   : public nodelet::Nodelet
+// #elif defined(IS_ROS2)
+  : public rclcpp::Node, public std::enable_shared_from_this<FlirRos>
+// #endif
+{
  public:
-  FlirRos(){};
-  virtual ~FlirRos();
+// #if defined(IS_ROS1)
+//   FlirRos() = default;
+//   virtual ~FlirRos();
+//   virtual void onInit() override;
+// #elif defined(IS_ROS2)
+  explicit FlirRos(const rclcpp::NodeOptions & options = rclcpp::NodeOptions());
+  ~FlirRos();
+// #endif
 
  private:
-  virtual void onInit() override;
+  // virtual void onInit() override;
   bool set_format(int fd, bool raw);
   bool request_buffers(int fd);
   bool start_streaming(int fd);
   void get_ros_param();
   void setup_ros();
   void setup_ros_names();
-  void publish_frame(uint32_t bytes_used, ros::Time time);
-  void publish_transforms(const ros::Time& time);
-  void publish_transform(const ros::Time& time, const tf::Vector3& trans,
-                         const tf::Quaternion& q, const std::string& from,
+  void publish_frame(uint32_t bytes_used, rclcpp::Time time);
+  void publish_transforms(const rclcpp::Time& time);
+  void publish_transform(const rclcpp::Time& time, const geometry_msgs::msg::Vector3& trans,
+                         const tf2::Quaternion& q, const std::string& from,
                          const std::string& to);
-  sensor_msgs::ImagePtr rectify_image(
-      const sensor_msgs::ImageConstPtr& image_msg,
-      const sensor_msgs::CameraInfoConstPtr& camera_info_ptr);
-  void get_frame_time(ros::Time& frame_time);
+  sensor_msgs::msg::Image::SharedPtr rectify_image(
+      const sensor_msgs::msg::Image::ConstSharedPtr& image_msg,
+      const sensor_msgs::msg::CameraInfo::ConstSharedPtr& camera_info_ptr
+  );
+  void get_frame_time(rclcpp::Time& frame_time);
 
   object_detection::fd_guard fd;
   bool raw = true;
@@ -61,9 +84,6 @@ class FlirRos : public nodelet::Nodelet {
   int ffc_mode = 1;
   int sync_mode = 0;
 
-  ros::NodeHandle nh;
-  ros::NodeHandle private_nh;
-
   // external trigger set
   int use_ext_sync = 1;
 
@@ -75,14 +95,14 @@ class FlirRos : public nodelet::Nodelet {
   std::string img_opt_frame_id;
 
   // image transport interfaces
-  std::unique_ptr<image_transport::ImageTransport> it;
+  std::shared_ptr<image_transport::ImageTransport> it;
   image_transport::CameraPublisher image_pub;
   image_transport::Publisher rect_image_pub;
   //nv2ros::Publisher* nv_image_pub;
   std::string intrinsic_url;
 
   // camera intrinsics info
-  std::unique_ptr<camera_info_manager::CameraInfoManager> cinfo;
+  std::shared_ptr<camera_info_manager::CameraInfoManager> cinfo;
 
   // image geometry interface for rectification
   image_geometry::PinholeCameraModel cam_model;
