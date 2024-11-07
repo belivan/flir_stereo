@@ -1,48 +1,49 @@
 #ifndef FLIR_ROS_SYNC_H
 #define FLIR_ROS_SYNC_H
 
+// Standard includes
 #include <memory>
-
-#include <rclcpp/rclcpp.hpp>
-#include <rclcpp_components/register_node_macro.hpp>
-
 #include <atomic>
 #include <thread>
+#include <string>
+#include <ctime>
 
+// ROS includes
+#include <rclcpp/rclcpp.hpp>
+#include <rclcpp_components/register_node_macro.hpp>
 #include <camera_info_manager/camera_info_manager.hpp>
 #include <image_geometry/pinhole_camera_model.h>
 #include <image_transport/image_transport.h>
 #include <tf2_ros/transform_broadcaster.h>
-#include <ctime>
-
-#include "./fd_guard.h"
-#include <linux/videodev2.h>
-
-#include <opencv2/opencv.hpp>
-
-#include "../include/image_transport.h"
+#include <sensor_msgs/msg/image.hpp>
+#include <sensor_msgs/msg/camera_info.hpp>
 #include <cv_bridge/cv_bridge.h>
 
-// #include <image_sharing/image_sharing.h>
+// OpenCV includes
+#include <opencv2/opencv.hpp>
+
+// Project includes
+#include "fd_guard.h"
+#include "image_transport.h"
 
 namespace flir_ros_sync {
 
 struct CameraConfig {
-    std::string camera_name;
-    std::string intrinsic_url;
+    std::string camera_name = "flir";
+    std::string intrinsic_url = "package://flir_ros_sync/config/flir_intrinsics.yaml";
     int width = 640;
     int height = 512;
-    int use_ext_sync = 1;
-    int send_every_n = 1;
     bool raw = true;
     int gain_mode = 2;
     int ffc_mode = 1;
+    int use_ext_sync = 1;
+    int send_every_n = 1;
     float timestamp_offset = 0.0f;
 };
 
 struct DeviceInfo {
-    int fd;
-    void* buffer;
+    int fd = -1;
+    void* buffer = nullptr;
     std::string device_path;
     std::string serial_port;
 };
@@ -64,17 +65,17 @@ struct Result {
     bool success;
     std::string error_message;
     T value;
-    
+
     static Result<T> ok(T val) {
         return Result<T>{true, "", std::move(val)};
     }
-    
-    static Result<T> error(std::string msg) {
-        return Result<T>{false, std::move(msg), T{}};
+
+    static Result<T> error(const std::string& msg) {
+        return Result<T>{false, msg, T{}};
     }
 };
 
-class FlirRos : public rclcpp::Node, public std::enable_shared_from_this<FlirRos> {
+class FlirRos : public rclcpp::Node {
 public:
     explicit FlirRos(const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
     ~FlirRos();
@@ -82,22 +83,43 @@ public:
     Result<void> initialize();
 
 private:
+    // Initialization methods
+    Result<void> loadParameters();
     Result<void> initializeDevice();
     Result<void> setupROS();
-    void streamingLoop();
-    // ... keep other private method declarations ...
 
+    // Streaming methods
+    void streamingLoop();
+    void publishFrame(uint32_t bytes_used, const rclcpp::Time& time);
+    void publishTransforms(const rclcpp::Time& time);
+    void publishTransform(const rclcpp::Time& time, const geometry_msgs::msg::Vector3& trans,
+                          const tf2::Quaternion& q, const std::string& from,
+                          const std::string& to);
+    void getFrameTime(rclcpp::Time& frame_time);
+
+    // Utility methods
+    bool setFormat(int fd, bool raw);
+    bool requestBuffers(int fd);
+    bool startStreaming(int fd);
+
+    // Camera configuration and device info
     CameraConfig config_;
     DeviceInfo device_;
-    PublisherContext publishers_;
-    
-    object_detection::fd_guard fd;
-    std::atomic_bool stream{false};
-    std::thread stream_thread;
-    int count = 0;
+    PublisherContext publisher_;
 
-    tf2_ros::TransformBroadcaster br;
-    image_geometry::PinholeCameraModel cam_model;
+    // ROS tools
+    tf2_ros::TransformBroadcaster transform_broadcaster_;
+    image_geometry::PinholeCameraModel cam_model_;
+
+    // Streaming control
+    std::atomic_bool stream_active_{false};
+    std::thread stream_thread_;
+    int frame_count_ = 0;
+
+    // Logging macros
+    #define LOG_INFO(...) RCLCPP_INFO(this->get_logger(), __VA_ARGS__)
+    #define LOG_ERROR(...) RCLCPP_ERROR(this->get_logger(), __VA_ARGS__)
+    #define LOG_FATAL(...) RCLCPP_FATAL(this->get_logger(), __VA_ARGS__)
 };
 
 }  // namespace flir_ros_sync
