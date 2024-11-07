@@ -28,7 +28,7 @@ unsigned long lastSoftwareMicros = 0;
 volatile time_t synchronizedTime = 0;
 
 // Variables to limit triggers to 10 per second
-const int MAX_TRIGGERS_PER_SECOND = 30;
+const int MAX_TRIGGERS_PER_SECOND = 10;
 volatile int triggerCount = 0;
 
 // Function to toggle the output pins
@@ -86,7 +86,7 @@ void ppsInterrupt() {
     lastError = error;
 
     // Adjust clockFactor based on PID output
-    clockFactor += adjustment * 1e-6; // Microseconds to small factor
+    clockFactor += adjustment * 1e-5; // Microseconds to small factor  
 
     // Clamp clockFactor to prevent excessive adjustments
     clockFactor = constrain(clockFactor, 0.999, 1.001);
