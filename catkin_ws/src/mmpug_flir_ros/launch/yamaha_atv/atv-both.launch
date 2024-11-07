@@ -27,5 +27,7 @@
     <node pkg="flir_ros_sync" type="trigger_ffc.py" name="flir_ffc_trigger" output="screen">
         <rosparam param="serial_list">["flir_boson_serial_322008", "flir_boson_serial_322011"]</rosparam>
     </node>
+    <!-- Node to print Teensy's Serial print (PPS status, Hz setting, Clock Sync, etc.) -->
+    <node pkg="flir_ros_sync" type="check_teensy_status.py" name="teensy_serial_publisher" output="screen"></node>
 
 </launch>
