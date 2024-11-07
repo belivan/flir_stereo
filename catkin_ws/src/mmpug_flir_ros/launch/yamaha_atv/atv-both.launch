@@ -24,8 +24,8 @@
     </node>
 
     <!-- Node to trigger FFC every 3 minutes -->
-    <!-- <node pkg="flir_ros_sync" type="trigger_ffc.py" name="flir_ffc_trigger" output="screen">
+    <node pkg="flir_ros_sync" type="trigger_ffc.py" name="flir_ffc_trigger" output="screen">
         <rosparam param="serial_list">["flir_boson_serial_322008", "flir_boson_serial_322011"]</rosparam>
-    </node> -->
+    </node>
 
 </launch>

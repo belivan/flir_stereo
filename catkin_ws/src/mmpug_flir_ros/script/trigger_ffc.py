@@ -32,23 +32,6 @@ def resolve_serial_ports(serial_list):
     
     return resolved_serial_ports
 
-# def get_nuc_type_for_camera(port):
-#     """Initialize a camera at a given port, get its NUC type, then close it."""
-#     # handle = pyClient.Initialize(manualport=port)  # , useDll=False)
-#     myCam = CamAPI.pyClient(manualport=port)
-#     if not myCam:
-#         rospy.logwarn(f"Failed to initialize camera on port: {port}")
-#         return None
-#     try:
-#         # Get NUC type
-#         # result, nuc_type = pyClient.gaoGetNucType()
-        
-#     finally:
-#         # Ensure the camera is closed after retrieving the NUC type
-#         # pyClient.Close(handle)
-#         myCam.Close()
-#         rospy.loginfo(f"Closed camera on port: {port}")
-
 def main():
     # Initialize the ROS node
     rospy.init_node('flir_ffc_trigger')
@@ -56,7 +39,7 @@ def main():
     rospy.loginfo("STARTING")
 
     # Get the list of serial ports from the launch file (for example, passed as a parameter)
-    serial_list = rospy.get_param('serial_list', ["flir_boson_serial_34582"])  # ["flir_boson_serial_322008", "flir_boson_serial_322011"])
+    serial_list = rospy.get_param('~serial_list', ["flir_boson_serial_34582"])  # ["flir_boson_serial_322008", "flir_boson_serial_322011"])
     rospy.loginfo(f"Received serial list: {serial_list}")
 
 
