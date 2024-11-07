@@ -1,4 +1,5 @@
 #include "../include/flir_ros_sync.h"
+#include "common/image_transport.h"  // Include the image_transport header
 
 // Standard includes
 #include <fcntl.h>
@@ -18,6 +19,14 @@ namespace flir_ros_sync {
 FlirRos::FlirRos(const rclcpp::NodeOptions& options)
     : Node("flir_ros_sync", options) {
     LOG_INFO("Initializing FLIR ROS2 Node");
+    try {
+        // Disable unwanted image transports
+        object_detection::disable_transports(shared_from_this(), "image_transport");
+        initialize();
+    } catch (const std::exception& e) {
+        LOG_FATAL("Initialization failed: %s", e.what());
+        rclcpp::shutdown();
+    }
 }
 
 FlirRos::~FlirRos() {
@@ -36,27 +45,17 @@ FlirRos::~FlirRos() {
     }
 }
 
-Result<void> FlirRos::initialize() {
-    // Load parameters
-    auto result = loadParameters();
-    if (!result.success) return result;
-
-    // Initialize device
-    result = initializeDevice();
-    if (!result.success) return result;
-
-    // Setup ROS publishers
-    result = setupROS();
-    if (!result.success) return result;
+void FlirRos::initialize() {
+    loadParameters();
+    initializeDevice();
+    setupROS();
 
     // Start streaming
     stream_active_ = true;
     stream_thread_ = std::thread(&FlirRos::streamingLoop, this);
-
-    return Result<void>::ok({});
 }
 
-Result<void> FlirRos::loadParameters() {
+void FlirRos::loadParameters() {
     this->declare_parameter<std::string>("device_name", "/dev/video0");
     this->declare_parameter<std::string>("serial_port", "/dev/ttyUSB0");
     this->declare_parameter<std::string>("camera_name", config_.camera_name);
@@ -82,15 +81,13 @@ Result<void> FlirRos::loadParameters() {
     this->get_parameter("use_ext_sync", config_.use_ext_sync);
     this->get_parameter("send_every_n", config_.send_every_n);
     this->get_parameter("timestamp_offset", config_.timestamp_offset);
-
-    return Result<void>::ok({});
 }
 
-Result<void> FlirRos::initializeDevice() {
+void FlirRos::initializeDevice() {
     // Resolve device path
     char device_realpath[1024];
     if (!realpath(device_.device_path.c_str(), device_realpath)) {
-        return Result<void>::error("Failed to resolve device path");
+        throw std::runtime_error("Failed to resolve device path");
     }
     device_.device_path = device_realpath;
     LOG_INFO("Device path resolved to %s", device_.device_path.c_str());
@@ -98,7 +95,7 @@ Result<void> FlirRos::initializeDevice() {
     // Open device
     device_.fd = open(device_.device_path.c_str(), O_RDWR);
     if (device_.fd < 0) {
-        return Result<void>::error("Failed to open device");
+        throw std::runtime_error("Failed to open device");
     }
 
     // Verify streaming capabilities
@@ -106,27 +103,26 @@ Result<void> FlirRos::initializeDevice() {
     std::memset(&cap, 0, sizeof(cap));
     if (ioctl(device_.fd, VIDIOC_QUERYCAP, &cap) < 0 ||
         !(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE)) {
-        return Result<void>::error("Device cannot stream video");
+        throw std::runtime_error("Device cannot stream video");
     }
 
     // Set format and request buffers
     if (!setFormat(device_.fd, config_.raw)) {
-        return Result<void>::error("Failed to set video format");
+        throw std::runtime_error("Failed to set video format");
     }
     if (!requestBuffers(device_.fd)) {
-        return Result<void>::error("Failed to request buffers");
+        throw std::runtime_error("Failed to request buffers");
     }
     if (!startStreaming(device_.fd)) {
-        return Result<void>::error("Failed to start streaming");
+        throw std::runtime_error("Failed to start streaming");
     }
-
-    return Result<void>::ok({});
 }
 
-Result<void> FlirRos::setupROS() {
+void FlirRos::setupROS() {
     // Initialize image transport and camera info manager
     publisher_.it = std::make_shared<image_transport::ImageTransport>(shared_from_this());
-    publisher_.cinfo = std::make_shared<camera_info_manager::CameraInfoManager>(shared_from_this(), config_.camera_name, config_.intrinsic_url);
+    publisher_.cinfo = std::make_shared<camera_info_manager::CameraInfoManager>(
+        shared_from_this(), config_.camera_name, config_.intrinsic_url);
 
     // Set up topic names and frame IDs
     publisher_.camera_topic_name = config_.camera_name + "/image";
@@ -137,8 +133,6 @@ Result<void> FlirRos::setupROS() {
     // Advertise image topics
     publisher_.image_pub = publisher_.it->advertiseCamera(publisher_.camera_topic_name, 10);
     publisher_.rect_image_pub = publisher_.it->advertise(publisher_.rect_topic_name, 10);
-
-    return Result<void>::ok({});
 }
 
 void FlirRos::streamingLoop() {
@@ -275,7 +269,8 @@ void FlirRos::publishFrame(uint32_t bytes_used, const rclcpp::Time& time) {
         cv::cvtColor(yuv_img, rgb_img, cv::COLOR_YUV2RGB_I420);
     }
 
-    publisher_.image_pub.publish(img, cam_info);
+    // Publish only if there are subscribers
+    object_detection::publish_if_subscribed(publisher_.image_pub, img, cam_info);
 }
 
 void FlirRos::publishTransform(const rclcpp::Time& time, const geometry_msgs::msg::Vector3& trans,

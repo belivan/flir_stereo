@@ -23,8 +23,8 @@
 #include <opencv2/opencv.hpp>
 
 // Project includes
-#include "fd_guard.h"
-#include "image_transport.h"
+#include "common/fd_guard.h"
+#include "common/image_transport.h"
 
 namespace flir_ros_sync {
 
@@ -59,34 +59,18 @@ struct PublisherContext {
     std::string img_opt_frame_id;
 };
 
-// Result type for error handling
-template<typename T>
-struct Result {
-    bool success;
-    std::string error_message;
-    T value;
-
-    static Result<T> ok(T val) {
-        return Result<T>{true, "", std::move(val)};
-    }
-
-    static Result<T> error(const std::string& msg) {
-        return Result<T>{false, msg, T{}};
-    }
-};
-
 class FlirRos : public rclcpp::Node {
 public:
     explicit FlirRos(const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
     ~FlirRos();
 
-    Result<void> initialize();
+    void initialize();
 
 private:
     // Initialization methods
-    Result<void> loadParameters();
-    Result<void> initializeDevice();
-    Result<void> setupROS();
+    void loadParameters();
+    void initializeDevice();
+    void setupROS();
 
     // Streaming methods
     void streamingLoop();
