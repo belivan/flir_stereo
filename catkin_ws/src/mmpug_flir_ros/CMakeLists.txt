@@ -13,7 +13,8 @@ find_package(catkin REQUIRED COMPONENTS
     sensor_msgs
     roscpp
     nodelet
-    cv_bridge_customize
+    ## cv_bridge_customize
+    cv_bridge
     image_transport
     camera_info_manager
     tf

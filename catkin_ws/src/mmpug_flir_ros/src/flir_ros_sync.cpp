@@ -284,7 +284,7 @@ namespace flir_ros_sync
     cam_model.rectifyImage(image, rect_image, CV_INTER_LINEAR);
 
     // publish the rectified image
-    sensor_msgs::ImagePtr rect_msg =
+    const sensor_msgs::ImagePtr rect_msg =
         cv_bridge::CvImage(image_msg->header, image_msg->encoding, rect_image)
             .toImageMsg();
     return rect_msg;
@@ -443,7 +443,7 @@ namespace flir_ros_sync
     // publish raw image
     image_pub.publish(img, cam_info_ptr);
     // rectify and publish rectified image
-    // sensor_msgs::ImagePtr rect_msg = rectify_image(img, cam_info_ptr);
+    // const sensor_msgs::ImagePtr rect_msg = rectify_image(img, cam_info_ptr);
     // rect_image_pub.publish(rect_msg);
   }
 

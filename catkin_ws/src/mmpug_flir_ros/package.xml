@@ -51,7 +51,8 @@
   <buildtool_depend>catkin</buildtool_depend>
   <build_depend>nodelet</build_depend>
   <build_depend>sensor_msgs</build_depend>
-  <build_depend>cv_bridge_customize</build_depend>
+  <build_depend>cv_bridge</build_depend>
+  <!-- <build_depend>cv_bridge_customize</build_depend> -->
   <build_depend>image_transport</build_depend>
   <build_depend>camera_info_manager</build_depend>
   <build_depend>tf</build_depend>
@@ -59,7 +60,8 @@
   <!-- <build_depend>image_sharing</build_depend> -->  <!-- Removed by Anton because we're not using a Jetson and many cams -->
   <exec_depend>nodelet</exec_depend>
   <exec_depend>sensor_msgs</exec_depend>
-  <exec_depend>cv_bridge_customize</exec_depend>
+  <exec_depend>cv_bridge</exec_depend>
+  <!-- <exec_depend>cv_bridge_customize</exec_depend> -->
   <exec_depend>image_transport</exec_depend>
   <exec_depend>camera_info_manager</exec_depend>
   <exec_depend>tf</exec_depend>
