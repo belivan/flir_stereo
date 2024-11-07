@@ -53,76 +53,61 @@ namespace flir_ros_sync
   : Node("flir_ros_sync", options)
   {
     LOG_INFO("Initializing FLIR ROS2 Node");
+  }
 
-    // unpack device_name symlink
+  Result<void> FlirRos::initialize() {
+    // Load parameters
+    loadParameters();
+    
+    // Initialize device
+    auto result = initializeDevice();
+    if (!result.success) return result;
+
+    // Setup ROS publishers
+    result = setupROS();
+    if (!result.success) return result;
+
+    // Start streaming
+    stream = true;
+    stream_thread = std::thread(&FlirRos::streamingLoop, this);
+    
+    return Result<void>::ok({});
+  }
+
+  Result<void> FlirRos::initializeDevice() {
+    // Get device path
     this->declare_parameter<std::string>("device_name", "/dev/video0");
     std::string deviceName;
     this->get_parameter("device_name", deviceName);
 
     char deviceNameRoot[1024];
-    char *deviceResult = realpath(deviceName.c_str(), deviceNameRoot);
-    CHECK_FATAL(!deviceResult, "Serial port " << deviceName << " cannot be resolved!");
-    LOG_INFO_STREAM("Serial port " << deviceName << " resolved to " << deviceNameRoot);
-    
-    // TODO: get_ros_param(); // get the ros paramters from launch file
-    get_ros_param(); // get the ros paramters from launch file
+    if (!realpath(deviceName.c_str(), deviceNameRoot)) {
+        return Result<void>::error("Failed to resolve device path");
+    }
 
-    // 1. Try to open the device
-    fd.reset(open(deviceName.c_str(), O_RDWR));
-    CHECK_FATAL(fd < 0, "Unable to open device" << deviceNameRoot);
+    // Open device
+    fd.reset(open(deviceNameRoot, O_RDWR));
+    if (fd < 0) {
+        return Result<void>::error("Failed to open device");
+    }
 
-    // 2. Verify that the camera can actually stream
+    // Verify streaming capabilities
     struct v4l2_capability cap;
     CLEAR(cap);
-    CHECK_FATAL(ioctl(fd, VIDIOC_QUERYCAP, &cap) < 0,
-                "Unable to query capabilities!");
-    CHECK_FATAL(!(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE),
-                "Device can't stream video!");
+    if (ioctl(fd, VIDIOC_QUERYCAP, &cap) < 0 || 
+        !(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE)) {
+        return Result<void>::error("Device cannot stream video");
+    }
 
-    // 3. Set the device format (default is raw)
-    this->declare_parameter<int>("publish_image_sharing_every_n", publish_image_sharing_every_n);
-    this->declare_parameter<bool>("raw", true);
+    // Set format and request buffers
+    if (!set_format(fd, config_.raw)) {
+        return Result<void>::error("Failed to set format");
+    }
+    if (!request_buffers(fd)) {
+        return Result<void>::error("Failed to request buffers");
+    }
 
-    this->get_parameter("publish_image_sharing_every_n", publish_image_sharing_every_n);
-    this->get_parameter("raw", raw);
-
-    CHECK_FATAL(!set_format(fd, raw), "Unable to set video format!");
-
-    // 4. unpack serial_port symlink
-    this->declare_parameter<std::string>("serial_port");
-    std::string serialPort;
-    this->get_parameter("serial_port", serialPort);
-    char serialPortRoot[1024];
-    char *serialResult = realpath(serialPort.c_str(), serialPortRoot);
-    CHECK_FATAL(!serialResult, "Serial port " << serialPort << " cannot be resolved!");
-    LOG_INFO_STREAM("Serial port " << serialPort << " resolved to " << serialPortRoot);
-
-    // 6. set gain mode and FFC(flat field correction, regarding image global illumination) mode
-    this->declare_parameter<int>("gain_mode", gain_mode);
-    this->declare_parameter<int>("ffc_mode", ffc_mode);
-    this->get_parameter("gain_mode", gain_mode);
-    this->get_parameter("ffc_mode", ffc_mode);
-
-    set_gain_mode(gain_mode, serialPortRoot);
-    set_ffc_mode(ffc_mode, serialPortRoot);
-    shutter(serialPortRoot); // Best practice: set FFC mode to manual and do FFC only once during initialization
-
-    // 7. get signed timestamp offset in seconds, true capture time = message receival time + offset, should be negative if message arrive later than capture
-    this->declare_parameter<float>("timestamp_offset", timestampOffset);
-    this->get_parameter("timestamp_offset", timestampOffset);
-
-    // 8. Initialize the buffers (mmap)
-    CHECK_FATAL(!request_buffers(fd), "Requesting buffers failed!");
-
-    // 9. Start streaming
-    CHECK_FATAL(!start_streaming(fd), "Stream start failed!");
-
-    LOG_INFO("Ready to start streaming camera!");
-    stream = true;
-
-    // 10. Set up ROS publishers, now that we're confident we can stream.
-    // TODO: setup_ros();
-    setup_ros();
+    return Result<void>::ok({});
   }
 
   FlirRos::~FlirRos()
@@ -296,14 +281,6 @@ namespace flir_ros_sync
 
   void FlirRos::get_ros_param()
   {
-  #if defined(IS_ROS1)
-    private_nh.getParam("camera_name", camera_name);
-    private_nh.getParam("intrinsic_url", intrinsic_url);
-    private_nh.getParam("width", width);
-    private_nh.getParam("height", height);
-    private_nh.getParam("use_ext_sync", use_ext_sync);
-    private_nh.getParam("send_every_n", send_every_n);
-  #elif defined(IS_ROS2)
     this->declare_parameter<std::string>("camera_name", "flir");
     this->declare_parameter<std::string>("intrinsic_url", "package://flir_ros_sync/config/flir_intrinsics.yaml");
     this->declare_parameter<int>("width", 640);
