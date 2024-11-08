@@ -45,6 +45,7 @@
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>image_geometry</exec_depend>
   <exec_depend>opencv</exec_depend> <!-- OpenCV name may vary -->
+  <exec_depend>flirpy</exec_depend> <!-- FLIR camera interaction python lib -->
 
   <!-- Test dependencies -->
   <test_depend>ament_lint_auto</test_depend>

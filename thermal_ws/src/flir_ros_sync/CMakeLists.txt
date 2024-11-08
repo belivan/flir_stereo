@@ -99,6 +99,12 @@ install(
   DESTINATION lib/${PROJECT_NAME}
 )
 
+# Install py scripts
+install(PROGRAMS
+  script/trigger_ffc.py
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 # Install targets
 install(
   TARGETS ${PROJECT_NAME}

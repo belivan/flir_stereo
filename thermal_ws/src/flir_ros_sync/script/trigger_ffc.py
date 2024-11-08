@@ -57,7 +57,9 @@ class FlirFfcTrigger(Node):
                 self.get_logger().info(f"Connected to camera on port: {serial_port}")
             except Exception as e:
                 self.get_logger().error(f"Failed to connect to camera on port {serial_port}: {e}")
-
+        
+        self.trigger_ffc()
+        
         # Trigger FFC periodically every 3 minutes
         self.create_timer(180, self.trigger_ffc)
 

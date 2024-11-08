@@ -43,23 +43,23 @@ def generate_launch_description():
         parameters=[
             {
                 "sync_mode": 0,
-                "serial_list": [["flir_boson_serial_", flir_id]]
+                "serial_list": ["flir_boson_serial_", flir_id]
             }
         ]
     )
 
-    # # Optional: Trigger FFC node (currently commented out)
-    # ffc_trigger_node = Node(
-    #     package="flir_ros_sync",
-    #     executable="trigger_ffc.py",
-    #     name="flir_ffc_trigger",
-    #     output="screen",
-    #     parameters=[
-    #         {
-    #             "serial_list": [["flir_boson_serial_", flir_id]]
-    #         }
-    #     ]
-    # )
+    # Optional: Trigger FFC node
+    ffc_trigger_node = Node(
+        package="flir_ros_sync",
+        executable="trigger_ffc.py",
+        name="flir_ffc_trigger",
+        output="screen",
+        parameters=[
+            {
+                "serial_list": ["flir_boson_serial_", flir_id]
+            }
+        ]
+    )
 
     # Return the LaunchDescription with the components
     return LaunchDescription([
@@ -67,6 +67,5 @@ def generate_launch_description():
         declare_flir_id_arg,
         camera_launch,
         set_sync_mode_node,
-        # Uncomment the line below to enable the FFC trigger node
-        # ffc_trigger_node
+        ffc_trigger_node
     ])
