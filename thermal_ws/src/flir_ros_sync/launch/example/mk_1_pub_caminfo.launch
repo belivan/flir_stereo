@@ -1,0 +1,25 @@
+<launch>
+
+  <rosparam>
+    use_sim_time: true
+  </rosparam>
+  
+  <arg name="bag_path" default="/home/henryzh47/logging/LOCAL/2019-07-17-toured-LOCAL/objdet_2019-07-17-09-36-02_3.bag /home/henryzh47/logging/LOCAL/2019-07-17-toured-LOCAL/objdet_2019-07-17-09-36-34_4.bag /home/henryzh47/logging/LOCAL/2019-07-17-toured-LOCAL/objdet_2019-07-17-09-37-07_5.bag"/>
+
+  <node pkg="rosbag" type="play" name="bag_player" args="$(arg bag_path) -r 0.5 --clock" output="screen"/>
+
+  <node pkg="flir_ros" name="caminfo_left" type="add_caminfo_to_bag.py" output="screen">
+    <param name="intrinsic_url" value="$(find flir_ros)/data/camera_info/mk_1/thermal_caminfo_mk_1_left.yaml"/>
+    <param name="thermal_topic" value="/thermal_left/image_rect"/>
+    <param name="camera_info_topic" value="/thermal_left/camera_info"/>
+    <param name="thermal_frame_id" value="thermal_left/optical_frame"/>
+  </node>
+
+  <node pkg="flir_ros" name="caminfo_right" type="add_caminfo_to_bag.py" output="screen">
+    <param name="intrinsic_url" value="$(find flir_ros)/data/camera_info/mk_1/thermal_caminfo_mk_1_right.yaml"/>
+    <param name="thermal_topic" value="/thermal_right/image_rect"/>
+    <param name="camera_info_topic" value="/thermal_right/camera_info"/>
+    <param name="thermal_frame_id" value="thermal_right/optical_frame"/>
+  </node>
+
+</launch>
