@@ -60,7 +60,7 @@ struct PublisherContext {
     std::string img_opt_frame_id;
 };
 
-class FlirRos : public rclcpp::Node {
+class FlirRos : public rclcpp::Node{
 public:
     explicit FlirRos(const rclcpp::NodeOptions& options = rclcpp::NodeOptions());
     ~FlirRos();
