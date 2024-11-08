@@ -84,7 +84,7 @@ void FlirRos::loadParameters() {
     this->declare_parameter<int>("ffc_mode", config_.ffc_mode);
     this->declare_parameter<int>("use_ext_sync", config_.use_ext_sync);
     this->declare_parameter<int>("send_every_n", config_.send_every_n);
-    this->declare_parameter<float>("timestamp_offset", config_.timestamp_offset);
+    this->declare_parameter<double>("timestamp_offset", config_.timestamp_offset);
 
     this->get_parameter("device_name", device_.device_path);
     this->get_parameter("serial_port", device_.serial_port);

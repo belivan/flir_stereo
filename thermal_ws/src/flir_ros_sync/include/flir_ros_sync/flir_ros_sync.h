@@ -39,7 +39,7 @@ struct CameraConfig {
     int ffc_mode = 1;
     int use_ext_sync = 1;
     int send_every_n = 1;
-    float timestamp_offset = 0.0f;
+    double timestamp_offset = 0.0;
 };
 
 struct DeviceInfo {

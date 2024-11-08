@@ -9,7 +9,7 @@ def generate_launch_description():
     declare_raw_arg = DeclareLaunchArgument("raw", default_value="true", description="Use raw image format")
     declare_flir_id_arg = DeclareLaunchArgument("flir_id", default_value="124540", description="FLIR camera ID")
     declare_camera_name_arg = DeclareLaunchArgument("camera_name", default_value="thermal_left", description="Camera name")
-    declare_timestamp_offset_arg = DeclareLaunchArgument("timestamp_offset", default_value="0", description="Timestamp offset")
+    declare_timestamp_offset_arg = DeclareLaunchArgument("timestamp_offset", default_value="0.0", description="Timestamp offset")
 
     # Retrieve arguments
     raw = LaunchConfiguration("raw")
