@@ -18,8 +18,10 @@ find_package(sensor_msgs REQUIRED)
 find_package(image_transport REQUIRED)
 find_package(cv_bridge REQUIRED)
 find_package(camera_info_manager REQUIRED)
+find_package(tf2 REQUIRED)
 find_package(tf2_ros REQUIRED)
 find_package(tf2_geometry_msgs REQUIRED)
+find_package(geometry_msgs REQUIRED)
 find_package(image_geometry REQUIRED)
 find_package(OpenCV REQUIRED)
 
@@ -70,8 +72,10 @@ ament_target_dependencies(${PROJECT_NAME}
   image_transport
   cv_bridge
   camera_info_manager
+  tf2
   tf2_ros
   tf2_geometry_msgs
+  geometry_msgs
   image_geometry
   OpenCV
 )
@@ -110,8 +114,8 @@ install(
 
 # Install launch files if any
 install(
-  DIRECTORY launch/
-  DESTINATION share/${PROJECT_NAME}/launch/
+  DIRECTORY launch
+  DESTINATION share/${PROJECT_NAME}
 )
 
 ament_package()

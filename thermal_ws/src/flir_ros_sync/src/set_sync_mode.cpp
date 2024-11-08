@@ -36,7 +36,9 @@ int main(int argc, char **argv)
     {
         char serialPortRoot[1024];
         char *serialResult = realpath(("/dev/" + serialPort).c_str(), serialPortRoot);
-        CHECK_FATAL(!serialResult, "Serial port " + serialPort + " cannot be resolved!", node);
+        
+        std::string errorMsg = "Serial port " + serialPort + " cannot be resolved!";
+        CHECK_FATAL(!serialResult, errorMsg.c_str(), node);
         
         set_sync_mode(syncMode, serialPortRoot);
         int returnedSyncMode = get_sync_mode(serialPortRoot);

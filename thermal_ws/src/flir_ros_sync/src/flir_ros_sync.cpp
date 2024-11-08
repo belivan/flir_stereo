@@ -11,13 +11,20 @@
 #include <linux/videodev2.h>
 
 // ROS includes
-#include <tf2_geometry_msgs/tf2_geometry_msgs.h>
+#include <tf2_geometry_msgs/tf2_geometry_msgs.hpp>
+#include <geometry_msgs/msg/vector3.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
 
 namespace flir_ros_sync {
 
 FlirRos::FlirRos(const rclcpp::NodeOptions& options)
-    : Node("flir_ros_sync", options) {
+    : Node("flir_ros_sync", options),
+        config_{},
+        device_{},
+        transform_broadcaster_{this},
+        stream_active_{false},
+        frame_count_{0}
+    {
     LOG_INFO("Initializing FLIR ROS2 Node");
     try {
         // Disable unwanted image transports
@@ -122,7 +129,7 @@ void FlirRos::setupROS() {
     // Initialize image transport and camera info manager
     publisher_.it = std::make_shared<image_transport::ImageTransport>(shared_from_this());
     publisher_.cinfo = std::make_shared<camera_info_manager::CameraInfoManager>(
-        shared_from_this(), config_.camera_name, config_.intrinsic_url);
+        this, config_.camera_name, config_.intrinsic_url);
 
     // Set up topic names and frame IDs
     publisher_.camera_topic_name = config_.camera_name + "/image";
