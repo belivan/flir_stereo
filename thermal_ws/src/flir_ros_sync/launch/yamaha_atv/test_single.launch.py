@@ -21,7 +21,7 @@ def generate_launch_description():
 
     # Path to the single camera launch file
     atv_single_launch_path = os.path.join(
-        get_package_share_directory("flir_ros_sync"), "launch", "yamaha_atv", "atv-single.launch.py"
+        get_package_share_directory("flir_ros_sync"), "launch", "yamaha_atv", "atv_single.launch.py"
     )
 
     # Include the single camera launch file for `thermal_one`
