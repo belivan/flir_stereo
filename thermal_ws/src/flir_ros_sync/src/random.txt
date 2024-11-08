@@ -1,0 +1,16 @@
+ros2 launch flir_ros_sync test_single.launch.py 
+[INFO] [launch]: All log files can be found below /home/anton/.ros/log/2024-11-08-10-03-56-696891-anton-XPS-17-9710-11546
+[INFO] [launch]: Default logging verbosity is set to INFO
+[INFO] [component_container_mt-1]: process started with pid [11561]
+[INFO] [set_sync_mode-2]: process started with pid [11563]
+[set_sync_mode-2] [INFO] [1731078236.913257767] [set_flir_sync_mode]: flir_boson_serial_34582 returns mode setting result: disabled.
+[set_sync_mode-2] 00 00 00 00 
+[INFO] [set_sync_mode-2]: process has finished cleanly [pid 11563]
+[component_container_mt-1] [INFO] [1731078237.035911508] [flir_nodelet_manager_34582]: Load Library: /home/anton/thermal_ws/thermal_ws/install/flir_ros_sync/lib/libflir_ros_sync.so
+[component_container_mt-1] [INFO] [1731078237.043052600] [flir_nodelet_manager_34582]: Found class: rclcpp_components::NodeFactoryTemplate<flir_ros_sync::FlirRos>
+[component_container_mt-1] [INFO] [1731078237.043067579] [flir_nodelet_manager_34582]: Instantiate class: rclcpp_components::NodeFactoryTemplate<flir_ros_sync::FlirRos>
+[component_container_mt-1] [INFO] [1731078237.046438660] [flir_nodelet_34582]: Initializing FLIR ROS2 Node
+[component_container_mt-1] [FATAL] [1731078237.046475122] [flir_nodelet_34582]: Initialization failed: bad_weak_ptr
+[INFO] [launch_ros.actions.load_composable_nodes]: Loaded node '/flir_nodelet_34582' in container '/flir_nodelet_manager_34582'
+[component_container_mt-1] [INFO] [1731078237.047335322] [flir_nodelet_34582]: Shutting down FLIR ROS2 Node
+[INFO] [component_container_mt-1]: process has finished cleanly [pid 11561]

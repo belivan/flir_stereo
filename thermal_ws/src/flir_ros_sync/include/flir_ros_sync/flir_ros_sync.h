@@ -95,6 +95,7 @@ private:
     // ROS tools
     tf2_ros::TransformBroadcaster transform_broadcaster_;
     image_geometry::PinholeCameraModel cam_model_;
+    rclcpp::TimerBase::SharedPtr timer_;
 
     // Streaming control
     std::atomic_bool stream_active_{false};

@@ -25,15 +25,13 @@ FlirRos::FlirRos(const rclcpp::NodeOptions& options)
         stream_active_{false},
         frame_count_{0}
     {
-    LOG_INFO("Initializing FLIR ROS2 Node");
-    try {
-        // Disable unwanted image transports
-        object_detection::disable_transports(shared_from_this(), "image_transport");
-        initialize();
-    } catch (const std::exception& e) {
-        LOG_FATAL("Initialization failed: %s", e.what());
-        rclcpp::shutdown();
-    }
+    LOG_INFO("Constructed FLIR ROS2 Node");
+
+    // Schedule initialize() to be called after construction
+    timer_ = this->create_wall_timer(
+        std::chrono::milliseconds(0),
+        std::bind(&FlirRos::initialize, this)
+    );
 }
 
 FlirRos::~FlirRos() {
@@ -53,13 +51,25 @@ FlirRos::~FlirRos() {
 }
 
 void FlirRos::initialize() {
-    loadParameters();
-    initializeDevice();
-    setupROS();
+    LOG_INFO("Initializing FLIR ROS2 Node");
 
-    // Start streaming
-    stream_active_ = true;
-    stream_thread_ = std::thread(&FlirRos::streamingLoop, this);
+    // Cancel timer
+    timer_->cancel();
+
+    try{
+        object_detection::disable_transports(shared_from_this(), "image_transport");
+
+        loadParameters();
+        initializeDevice();
+        setupROS();
+
+        // Start streaming
+        stream_active_ = true;
+        stream_thread_ = std::thread(&FlirRos::streamingLoop, this);
+    } catch (const std::exception& e) {
+        LOG_FATAL("Initialization failed: %s", e.what());
+        rclcpp::shutdown();
+    }
 }
 
 void FlirRos::loadParameters() {
