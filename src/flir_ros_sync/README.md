@@ -45,7 +45,7 @@ This package provides a custom ROS 2 driver for the FLIR Boson camera. It can sw
    catkin build --packages-select flir_ros_sync
    ```
 
-8. Source the ROS 2 workspace after building:
+8. Source the ROS workspace after building:
 
    ```bash
    source devel/setup.bash
@@ -69,7 +69,7 @@ This package provides a custom ROS 2 driver for the FLIR Boson camera. It can sw
 5. Launch the driver with:
 
    ```bash
-   ros2 launch flir_ros_sync test_single_cam.launch.py
+   roslaunch flir_ros_sync test-single.launch
    ```
 
 Thermal image data will be published to `/[camera]/image`, camera info will be published to `/[camera]/camera_info`, and rectified image (not working for ROS1) data will be published to `/[camera]/image_rect`.
