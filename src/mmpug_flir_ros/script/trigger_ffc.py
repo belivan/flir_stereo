@@ -15,20 +15,30 @@ def resolve_serial_ports(serial_list):
         try:
             # Resolve the full path
             serial_port_root = os.path.realpath(f"/dev/{serial_port}")
-            
+
             if not os.path.exists(serial_port_root):
                 raise FileNotFoundError(f"Serial port {serial_port_root} cannot be resolved!")
-            
+
             rospy.loginfo(f"Resolved serial port: {serial_port} to {serial_port_root}")
             resolved_serial_ports.append(serial_port_root)
         except Exception as e:
             rospy.logerr(f"Error resolving serial port {serial_port}: {e}")
-    
+
     return resolved_serial_ports
 
 def trigger_ffc(cameras_flirpy, cameras_boson_sdk):
     rospy.loginfo("Triggering FFC for all cameras")
     for port, camera in cameras_flirpy.items():
+        # FLIRpy FFC trigger
+        try:
+            state = camera.get_ffc_state()
+            rospy.loginfo(f"FFC State on {port}: {state}")
+            camera.do_ffc()
+            rospy.loginfo(f"Triggered FFC for camera on port: {port}")
+        except Exception as e:
+            rospy.logerr(f"Failed to trigger FFC on camera {port}: {e}")
+
+        # NUC table switch (not working yet)
         try:
             rospy.loginfo(f"NUC Table Switch Desired for camera on port: {port}. Switching NUC table.")
             camera.do_nuc_table_switch()  # Perform the NUC table switch if needed
@@ -45,7 +55,7 @@ def cleanup(cameras_flirpy, cameras_boson_sdk):
             rospy.loginfo(f"Closed camera on port: {port}")
         except Exception as e:
             rospy.logerr(f"Failed to close camera on port {port}: {e}")
-    
+
     for port, camera in cameras_boson_sdk.items():
         try:
             camera.Close()
