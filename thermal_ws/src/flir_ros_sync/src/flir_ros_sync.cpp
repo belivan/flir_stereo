@@ -85,6 +85,7 @@ void FlirRos::loadParameters() {
     this->declare_parameter<int>("use_ext_sync", config_.use_ext_sync);
     this->declare_parameter<int>("send_every_n", config_.send_every_n);
     this->declare_parameter<double>("timestamp_offset", config_.timestamp_offset);
+    this->declare_parameter<int>("frame_rate", config_.frame_rate);
 
     this->get_parameter("device_name", device_.device_path);
     this->get_parameter("serial_port", device_.serial_port);
@@ -98,6 +99,22 @@ void FlirRos::loadParameters() {
     this->get_parameter("use_ext_sync", config_.use_ext_sync);
     this->get_parameter("send_every_n", config_.send_every_n);
     this->get_parameter("timestamp_offset", config_.timestamp_offset);
+    this->get_parameter("frame_rate", config_.frame_rate);
+
+    LOG_INFO("Loaded parameters");
+    LOG_INFO("Device name: %s", device_.device_path.c_str());
+    LOG_INFO("Serial port: %s", device_.serial_port.c_str());
+    LOG_INFO("Camera name: %s", config_.camera_name.c_str());
+    LOG_INFO("Intrinsic URL: %s", config_.intrinsic_url.c_str());
+    LOG_INFO("Width: %d", config_.width);
+    LOG_INFO("Height: %d", config_.height);
+    LOG_INFO("Raw: %s", config_.raw ? "true" : "false");
+    LOG_INFO("Gain mode: %d", config_.gain_mode);
+    LOG_INFO("FFC mode: %d", config_.ffc_mode);
+    LOG_INFO("Use external sync: %s", config_.use_ext_sync ? "true" : "false");
+    LOG_INFO("Send every N: %d", config_.send_every_n);
+    LOG_INFO("Timestamp offset: %f", config_.timestamp_offset);
+    LOG_INFO("Frame rate: %d", config_.frame_rate);
 }
 
 void FlirRos::initializeDevice() {
@@ -245,9 +262,9 @@ void FlirRos::getFrameTime(rclcpp::Time& frame_time) {
         timespec system_time;
         clock_gettime(CLOCK_REALTIME, &system_time);
 
-        uint64_t one_tenth_nsec = 100000000;  // 10 Hz
+        uint64_t one_amount_nsec = 1000000000 / config_.frame_rate;  // 1 / frame_rate in ns
         uint64_t system_nsec = system_time.tv_nsec;
-        uint64_t trigger_nsec = system_nsec - (system_nsec % one_tenth_nsec) + static_cast<uint64_t>(config_.timestamp_offset * 1e9);
+        uint64_t trigger_nsec = system_nsec - (system_nsec % one_amount_nsec) + static_cast<uint64_t>(config_.timestamp_offset * 1e9);
 
         if (trigger_nsec >= 1000000000) {
             trigger_nsec -= 1000000000;

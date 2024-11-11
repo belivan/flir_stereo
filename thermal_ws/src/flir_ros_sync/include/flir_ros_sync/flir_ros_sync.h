@@ -40,6 +40,7 @@ struct CameraConfig {
     int use_ext_sync = 1;
     int send_every_n = 1;
     double timestamp_offset = 0.0;
+    int frame_rate = 10;
 };
 
 struct DeviceInfo {

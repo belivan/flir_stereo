@@ -10,12 +10,14 @@ def generate_launch_description():
     declare_flir_id_arg = DeclareLaunchArgument("flir_id", default_value="124540", description="FLIR camera ID")
     declare_camera_name_arg = DeclareLaunchArgument("camera_name", default_value="thermal_left", description="Camera name")
     declare_timestamp_offset_arg = DeclareLaunchArgument("timestamp_offset", default_value="0.0", description="Timestamp offset")
+    declare_frame_rate_arg = DeclareLaunchArgument("frame_rate", default_value="10", description="Frame rate")
 
     # Retrieve arguments
     raw = LaunchConfiguration("raw")
     flir_id = LaunchConfiguration("flir_id")
     camera_name = LaunchConfiguration("camera_name")
     timestamp_offset = LaunchConfiguration("timestamp_offset")
+    frame_rate = LaunchConfiguration("frame_rate")
 
     # Define container for composable nodes
     container = ComposableNodeContainer(
@@ -44,7 +46,8 @@ def generate_launch_description():
                         "package://flir_ros_sync/data/camera_info/yamaha_atv/", camera_name, ".yaml"
                     ]},
                     {"gain_mode": 2},
-                    {"ffc_mode": 0}
+                    {"ffc_mode": 0},
+                    {"frame_rate": frame_rate},
                 ],
                 remappings=[
                     ("/set_camera_info", [camera_name, "/set_camera_info"])
