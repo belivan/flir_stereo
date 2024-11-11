@@ -31,7 +31,7 @@ def generate_launch_description():
             "raw": raw,
             "flir_id": flir_id,
             "camera_name": "thermal_left",
-            "frame_rate": 60
+            "frame_rate": "60"
         }.items(),
     )
 
