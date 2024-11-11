@@ -30,7 +30,7 @@ def generate_launch_description():
         launch_arguments={
             "raw": raw,
             "flir_id": flir_id,
-            "camera_name": "thermal_one"
+            "camera_name": "thermal_left"
         }.items(),
     )
 

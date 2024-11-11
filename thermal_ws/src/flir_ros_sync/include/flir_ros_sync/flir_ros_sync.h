@@ -31,7 +31,7 @@ namespace flir_ros_sync {
 
 struct CameraConfig {
     std::string camera_name = "flir";
-    std::string intrinsic_url = "package://flir_ros_sync/config/flir_intrinsics.yaml";
+    std::string intrinsic_url = "package://flir_ros_sync/data/camera_info/flir_intrinsics.yaml";
     int width = 640;
     int height = 512;
     bool raw = true;
