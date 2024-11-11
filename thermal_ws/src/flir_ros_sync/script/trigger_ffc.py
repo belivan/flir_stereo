@@ -1,9 +1,12 @@
 #!/usr/bin/env python3
 
+import sys
 import os
 import rclpy
 from rclpy.node import Node
 from flirpy.camera.boson import Boson
+
+# sys.path.append(os.path.dirname(os.path.abspath(__file__)))
 from Boson_SDK import *
 
 def resolve_serial_ports(serial_list, node):
