@@ -1,14 +1,8 @@
 #!/usr/bin/env python3
 
-# import ctypes
-# ctypes.cdll.LoadLibrary("/home/anton/Thermal_Camera/catkin_ws/src/mmpug_flir_ros/script/Boson_SDK/FSLP_Files/FSLP_64.so")
-
 import os
 import rospy
 from flirpy.camera.boson import Boson
-# import sys
-
-# sys.path.append(os.path.join(os.path.dirname(os.path.abspath(__file__)), "../script"))
 
 from Boson_SDK import *
 
@@ -32,16 +26,42 @@ def resolve_serial_ports(serial_list):
     
     return resolved_serial_ports
 
+def trigger_ffc(cameras_flirpy, cameras_boson_sdk):
+    rospy.loginfo("Triggering FFC for all cameras")
+    for port, camera in cameras_flirpy.items():
+        try:
+            rospy.loginfo(f"NUC Table Switch Desired for camera on port: {port}. Switching NUC table.")
+            camera.do_nuc_table_switch()  # Perform the NUC table switch if needed
+            result, nuc_type = cameras_boson_sdk[port].gaoGetNucType()
+            rospy.loginfo(f"Result on {port}: {result} and Current NUC Type : {nuc_type}")
+        except Exception as e:
+            rospy.logerr(f"Failed NUC on camera {port}: {e}")
+
+def cleanup(cameras_flirpy, cameras_boson_sdk):
+    rospy.loginfo("Shutting down: Closing camera connections.")
+    for port, camera in cameras_flirpy.items():
+        try:
+            camera.close()
+            rospy.loginfo(f"Closed camera on port: {port}")
+        except Exception as e:
+            rospy.logerr(f"Failed to close camera on port {port}: {e}")
+    
+    for port, camera in cameras_boson_sdk.items():
+        try:
+            camera.Close()
+            rospy.loginfo(f"Closed Boson SDK camera on port: {port}")
+        except Exception as e:
+            rospy.logerr(f"Failed to close Boson SDK camera on port {port}: {e}")
+
 def main():
     # Initialize the ROS node
     rospy.init_node('flir_ffc_trigger')
 
     rospy.loginfo("STARTING")
 
-    # Get the list of serial ports from the launch file (for example, passed as a parameter)
-    serial_list = rospy.get_param('~serial_list', ["flir_boson_serial_34582"])  # ["flir_boson_serial_322008", "flir_boson_serial_322011"])
+    # Get the list of serial ports from the launch file
+    serial_list = rospy.get_param('~serial_list', ["flir_boson_serial_34582"])
     rospy.loginfo(f"Received serial list: {serial_list}")
-
 
     # Resolve the full paths for each serial port
     resolved_serial_ports = resolve_serial_ports(serial_list)
@@ -59,57 +79,24 @@ def main():
             cameras_flirpy[serial_port] = camera
 
             # Initialize the camera using the Boson SDK
-            camera = CamAPI.pyClient(manualport=serial_port)
-            cameras_boson_sdk[serial_port] = camera
+            camera_sdk = CamAPI.pyClient(manualport=serial_port)
+            cameras_boson_sdk[serial_port] = camera_sdk
 
             rospy.loginfo(f"Connected to camera on port: {serial_port}")
         except Exception as e:
             rospy.logerr(f"Failed to connect to camera on port {serial_port}: {e}")
 
-    def trigger_ffc():
-        rospy.loginfo("Triggering FFC for all cameras")
-        for port, camera in cameras_flirpy.items():
-            try:
-                camera.do_ffc()
-            except Exception as e:
-                rospy.logerr(f"Failed FFC on camera {port}: {e}")
-            
-            try:
-                # Check if NUC table switch is desired
-                if camera.get_nuc_desired() == 1:
-                    rospy.loginfo(f"NUC Table Switch Desired for camera on port: {port}. Switching NUC table.")
-                    
-                    camera.do_nuc_table_switch()  # Perform the NUC table switch if needed
-                    result, nuc_type = cameras_boson_sdk[port].gaoGetNucType()
-                    
-                    rospy.loginfo(f"Result on {port}: {result} and Current NUC Type : {nuc_type}")
-                else:
-                    rospy.loginfo(f"NUC Table Switch NOT Desired for camera on port: {port}.")
-                    result, nuc_type = cameras_boson_sdk[port].gaoGetNucType()
-                    
-                    rospy.loginfo(f"Result on {port}: {result} and Current NUC Type : {nuc_type}")
+    # Register shutdown callback
+    rospy.on_shutdown(lambda: cleanup(cameras_flirpy, cameras_boson_sdk))
 
-            except Exception as e:
-                rospy.logerr(f"Failed NUC on camera {port}: {e}")
+    # Set up a ROS Timer to trigger FFC every 3 minutes
+    timer = rospy.Timer(rospy.Duration(180), lambda event: trigger_ffc(cameras_flirpy, cameras_boson_sdk))
 
-    # Set the loop rate to trigger FFC every 3 minutes (every 10 secs now)
-    rate = rospy.Rate(1/180)  # 1/180 Hz = once every 180 seconds = 3 minutes
-    first = True
-
-    # Trigger FFC in an infinite loop
-    while not rospy.is_shutdown():
-        if first:
-            first = False
-        else:
-            trigger_ffc()
-        rate.sleep()
-
-    # Close the cameras before exiting
-    for port, camera in cameras_flirpy.items():
-        camera.close()
-    
-    for port, camera in cameras_boson_sdk.items():
-        camera.Close()
+    # Keep the node running
+    rospy.spin()
 
 if __name__ == '__main__':
-    main()
+    try:
+        main()
+    except rospy.ROSInterruptException:
+        pass
