@@ -42,7 +42,7 @@ def generate_launch_description():
         name="set_flir_sync_mode",
         output="screen",
         parameters=[
-            {"sync_mode": 0},
+            {"sync_mode": 0},  # 0 disable, 1 master, 2 slave
             {"serial_list": [["flir_boson_serial_", flir_id]]}
         ]
     )

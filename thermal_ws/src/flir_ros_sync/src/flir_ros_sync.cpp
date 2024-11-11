@@ -30,7 +30,8 @@ FlirRos::FlirRos(const rclcpp::NodeOptions& options)
     {
     LOG_INFO("Constructed FLIR ROS2 Node");
 
-    // Schedule initialize() to be called after construction
+    // Schedule initialize() to be called after construction is complete
+    // Quick workaround to avoid calling shared_from_this() in constructor too early
     timer_ = this->create_wall_timer(
         std::chrono::milliseconds(0),
         std::bind(&FlirRos::initialize, this)
