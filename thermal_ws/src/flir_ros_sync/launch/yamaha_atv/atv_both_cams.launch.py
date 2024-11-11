@@ -18,7 +18,7 @@ def generate_launch_description():
     right_flir_id = LaunchConfiguration("right_flir_id")
 
     # Paths to sub-launch file (atv-single.launch)
-    flir_ros_sync_path = os.path.join(get_package_share_directory('flir_ros_sync'), 'launch', 'yamaha_atv', 'atv_single.launch.py')
+    flir_ros_sync_path = os.path.join(get_package_share_directory('flir_ros_sync'), 'launch', 'yamaha_atv', 'atv_single_cam.launch.py')
 
     # Include left and right camera launch files
     left_camera = IncludeLaunchDescription(

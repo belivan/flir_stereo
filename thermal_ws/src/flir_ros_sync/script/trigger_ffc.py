@@ -1,13 +1,12 @@
 #!/usr/bin/env python3
 
-import sys
 import os
 import rclpy
 from rclpy.node import Node
 from flirpy.camera.boson import Boson
 
-# sys.path.append(os.path.dirname(os.path.abspath(__file__)))
-from Boson_SDK import *
+from Boson_SDK import CamAPI
+from Boson_SDK import FLR_GAO_NUC_TYPE_E
 
 def resolve_serial_ports(serial_list, node):
     """
@@ -34,6 +33,8 @@ class FlirFfcTrigger(Node):
         super().__init__('flir_ffc_trigger')
 
         self.get_logger().info("STARTING FFC TRIGGER NODE")
+
+        self.declare_parameter("serial_list", ["flir_boson_serial_34582"])
         serial_list = self.get_parameter("serial_list").get_parameter_value().string_array_value
         self.get_logger().info(f"Received serial list: {serial_list}")
 
@@ -42,8 +43,7 @@ class FlirFfcTrigger(Node):
 
         if not self.resolved_serial_ports:
             self.get_logger().error("No valid serial ports found, exiting...")
-            rclpy.shutdown()
-            return
+            return RuntimeError("No valid serial ports found")
 
         # Initialize cameras based on the resolved serial ports
         self.cameras_flirpy = {}
@@ -60,9 +60,9 @@ class FlirFfcTrigger(Node):
                 self.get_logger().info(f"Connected to camera on port: {serial_port}")
             except Exception as e:
                 self.get_logger().error(f"Failed to connect to camera on port {serial_port}: {e}")
-        
+
         self.trigger_ffc()
-        
+
         # Trigger FFC periodically every 3 minutes
         self.create_timer(180, self.trigger_ffc)
 
@@ -112,8 +112,10 @@ def main(args=None):
     except KeyboardInterrupt:
         pass
     finally:
-        node.destroy_node()
-        rclpy.shutdown()
+        if 'node' in locals():
+            node.destroy_node()
+        if rclpy.ok():
+            rclpy.shutdown()
 
 if __name__ == '__main__':
     main()

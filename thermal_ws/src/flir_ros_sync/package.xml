@@ -45,8 +45,15 @@
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>image_geometry</exec_depend>
   <exec_depend>opencv</exec_depend> <!-- OpenCV name may vary -->
-  <exec_depend>flirpy</exec_depend> <!-- FLIR camera interaction python lib -->
-  <exec_depend>rclpy</exec_depend> <!-- ROS2 Python client library -->
+
+  <!-- Python dependencies -->
+  <build_depend>flirpy</build_depend>
+  <build_depend>rclpy</build_depend>
+
+  <exec_depend>flirpy</exec_depend>
+  <exec_depend>rclpy</exec_depend>
+
+
 
   <!-- Test dependencies -->
   <test_depend>ament_lint_auto</test_depend>

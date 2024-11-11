@@ -1,9 +1,8 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription, SetEnvironmentVariable
-from launch.substitutions import LaunchConfiguration, PathJoinSubstitution
-from launch.launch_description_sources import PythonLaunchDescriptionSource, AnyLaunchDescriptionSource
+from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
+from launch.substitutions import LaunchConfiguration
+from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
-from launch_ros.substitutions import FindPackageShare
 from ament_index_python.packages import get_package_share_directory
 import os
 
@@ -22,7 +21,7 @@ def generate_launch_description():
 
     # Path to the single camera launch file
     atv_single_launch_path = os.path.join(
-        get_package_share_directory("flir_ros_sync"), "launch", "yamaha_atv", "atv_single.launch.py"
+        get_package_share_directory("flir_ros_sync"), "launch", "yamaha_atv", "atv_single_cam.launch.py"
     )
 
     # Include the single camera launch file for `thermal_one`
@@ -60,10 +59,6 @@ def generate_launch_description():
 
     # Return the LaunchDescription with the components
     return LaunchDescription([
-        # Don't forget to set the PYTHONPATH to the Boson SDK
-        # SetEnvironmentVariable('PYTHONPATH', PathJoinSubstitution([
-        #     FindPackageShare("flir_ros_sync"), "script", "Boson_SDK"
-        # ])),
         declare_raw_arg,
         declare_flir_id_arg,
         camera_launch,

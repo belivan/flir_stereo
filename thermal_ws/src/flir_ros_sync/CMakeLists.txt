@@ -105,6 +105,12 @@ install(PROGRAMS
   DESTINATION lib/${PROJECT_NAME}
 )
 
+# Install Boson SDK module
+install(
+  DIRECTORY script/Boson_SDK
+  DESTINATION lib/${PROJECT_NAME}
+)
+
 # Install targets
 install(
   TARGETS ${PROJECT_NAME}
