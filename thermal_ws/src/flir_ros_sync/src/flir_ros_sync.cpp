@@ -305,6 +305,43 @@ void FlirRos::publishFrame(uint32_t bytes_used, const rclcpp::Time& time) {
 
     // Publish only if there are subscribers
     object_detection::publish_if_subscribed(publisher_.image_pub, img, cam_info);
+
+    // Publish rectified image
+    sensor_msgs::msg::Image::SharedPtr rect_msg = rectify_image(img, cam_info);
+    object_detection::publish_if_subscribed(publisher_.rect_image_pub, rect_msg);
+
+    // Publish transform
+    // geometry_msgs::msg::Vector3 translation;
+    // tf2::Quaternion rotation;
+    // publishTransforms...
+
+}
+
+sensor_msgs::msg::Image::SharedPtr FlirRos::rectify_image(
+    const sensor_msgs::msg::Image::ConstSharedPtr& image_msg,
+    const sensor_msgs::msg::CameraInfo::ConstSharedPtr& cam_info)
+{
+    // update camera info
+    cam_model_.fromCameraInfo(cam_info);
+    // get the image to cv format
+    cv_bridge::CvImageConstPtr cv_ptr;
+    try {
+        cv_ptr = cv_bridge::toCvShare(image_msg, image_msg->encoding);
+    } catch (cv_bridge::Exception& e) {
+        RCLCPP_ERROR(this->get_logger(), "cv_bridge exception: %s", e.what());
+        return nullptr;
+    }
+
+    cv::Mat rect_image;
+
+    // rectify the image
+    cam_model_.rectifyImage(cv_ptr->image, rect_image, CV_INTER_LINEAR);
+
+    // publish the rectified image
+    const sensor_msgs::msg::Image::SharedPtr rect_msg =
+        cv_bridge::CvImage(image_msg->header, image_msg->encoding, rect_image)
+            .toImageMsg();
+    return rect_msg;
 }
 
 void FlirRos::publishTransform(const rclcpp::Time& time, const geometry_msgs::msg::Vector3& trans,

@@ -77,6 +77,9 @@ private:
     // Streaming methods
     void streamingLoop();
     void publishFrame(uint32_t bytes_used, const rclcpp::Time& time);
+    sensor_msgs::msg::Image::SharedPtr rectify_image(
+                            const sensor_msgs::msg::Image::ConstSharedPtr& image_msg,
+                            const sensor_msgs::msg::CameraInfo::ConstSharedPtr& cam_info);
     void publishTransforms(const rclcpp::Time& time);
     void publishTransform(const rclcpp::Time& time, const geometry_msgs::msg::Vector3& trans,
                           const tf2::Quaternion& q, const std::string& from,
