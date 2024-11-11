@@ -314,7 +314,6 @@ void FlirRos::publishFrame(uint32_t bytes_used, const rclcpp::Time& time) {
     // geometry_msgs::msg::Vector3 translation;
     // tf2::Quaternion rotation;
     // publishTransforms...
-
 }
 
 sensor_msgs::msg::Image::SharedPtr FlirRos::rectify_image(
