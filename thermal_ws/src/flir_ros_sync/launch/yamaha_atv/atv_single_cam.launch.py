@@ -61,5 +61,6 @@ def generate_launch_description():
         declare_flir_id_arg,
         declare_camera_name_arg,
         declare_timestamp_offset_arg,
+        declare_frame_rate_arg,
         container
     ])
