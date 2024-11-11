@@ -15,6 +15,9 @@
 #include <geometry_msgs/msg/vector3.hpp>
 #include <rclcpp_components/register_node_macro.hpp>
 
+// Project includes
+#include "rawBoson.h"
+
 namespace flir_ros_sync {
 
 FlirRos::FlirRos(const rclcpp::NodeOptions& options)
@@ -139,6 +142,21 @@ void FlirRos::initializeDevice() {
         !(cap.capabilities & V4L2_CAP_VIDEO_CAPTURE)) {
         throw std::runtime_error("Device cannot stream video");
     }
+
+    // Resolve serial port
+    char serial_realpath[1024];
+    if (!realpath(device_.serial_port.c_str(), serial_realpath)) {
+        throw std::runtime_error("Failed to resolve serial port");
+    }
+    device_.serial_port = serial_realpath;
+    LOG_INFO("Serial port resolved to %s", device_.serial_port.c_str());
+
+    // Configure Gain and FFC modes
+    set_gain_mode(config_.gain_mode, device_.serial_port);
+    LOG_INFO("Verified gain mode set to %d", get_gain_mode(device_.serial_port));
+    set_ffc_mode(config_.ffc_mode, device_.serial_port);
+    LOG_INFO("Verified FFC mode set to %d", get_ffc_mode(device_.serial_port));
+    shutter(device_.serial_port);  // essentially FFC and only works when FFC mode is 0, 1, or 3
 
     // Set format and request buffers
     if (!setFormat(device_.fd, config_.raw)) {

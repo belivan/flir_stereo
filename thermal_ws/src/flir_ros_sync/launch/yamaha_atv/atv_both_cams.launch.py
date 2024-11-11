@@ -3,7 +3,7 @@ from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
 from launch.substitutions import LaunchConfiguration
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
-from ament_index_python.packages import get_package_share_directory 
+from ament_index_python.packages import get_package_share_directory
 import os
 
 def generate_launch_description():
@@ -26,7 +26,8 @@ def generate_launch_description():
         launch_arguments={
             'raw': raw,
             'flir_id': left_flir_id,
-            'camera_name': 'thermal_left'
+            'camera_name': 'thermal_left',
+            'frame_rate': '10'
         }.items(),
     )
 
@@ -35,7 +36,8 @@ def generate_launch_description():
         launch_arguments={
             'raw': raw,
             'flir_id': right_flir_id,
-            'camera_name': 'thermal_right'
+            'camera_name': 'thermal_right',
+            'frame_rate': '10'
         }.items(),
     )
 
@@ -72,6 +74,14 @@ def generate_launch_description():
         ]
     )
 
+    # Teensy Status publisher
+    teensy_serial_publisher = Node(
+        package='flir_ros_sync',
+        executable='check_teensy_status.py',
+        name='teensy_serial_publisher',
+        output='screen'
+    )
+
     return LaunchDescription([
         declare_raw_arg,
         declare_left_flir_id_arg,
@@ -79,5 +89,6 @@ def generate_launch_description():
         left_camera,
         right_camera,
         set_sync_mode_node,
-        ffc_trigger_node
+        ffc_trigger_node,
+        teensy_serial_publisher
     ])

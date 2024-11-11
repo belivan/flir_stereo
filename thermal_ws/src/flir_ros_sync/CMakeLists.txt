@@ -104,6 +104,10 @@ install(PROGRAMS
   script/trigger_ffc.py
   DESTINATION lib/${PROJECT_NAME}
 )
+install(PROGRAMS
+  script/check_teensy_status.py
+  DESTINATION lib/${PROJECT_NAME}
+)
 
 # Install Boson SDK module
 install(

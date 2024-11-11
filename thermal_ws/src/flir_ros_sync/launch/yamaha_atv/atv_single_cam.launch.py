@@ -45,8 +45,8 @@ def generate_launch_description():
                     {"intrinsic_url": [
                         "package://flir_ros_sync/data/camera_info/yamaha_atv/", camera_name, ".yaml"
                     ]},
-                    {"gain_mode": 2},
-                    {"ffc_mode": 0},
+                    {"gain_mode": 0},  # 0 high, 1 low, 2 auto, 3 dual, 4 manual
+                    {"ffc_mode": 0},  # 0 manual, 1 auto, 2 external, 3 shutter test
                     {"frame_rate": frame_rate},
                 ],
                 remappings=[
