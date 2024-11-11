@@ -1,68 +1,109 @@
 # FLIR Boson ROS Driver
 
-This package provides a custom ROS driver for the FLIR Boson camera. Currently, it can switch between raw and colorized video.
-
-This FLIR ROS driver also has time synchronization with Nvidia Jetson Xavier.
+This package provides a custom ROS 2 driver for the FLIR Boson camera. It can switch between raw and colorized video modes, with options for rectified video output.
 
 ## Installation
 
-1. Make sure you have OpenCV installed, with sources. I do a source build of OpenCV and haven't had any problems with that. You may wish to do the same. OpenCV is currently only used to do the color from YUV to RGB.
-1. Clone this package into some workspace.
-1. Copy the `udev` rules into place, as follows:
+### 1. Install ROS 1
 
-    ```bash
-    sudo cp 42-flir-ros.rules /etc/udev/rules.d
-    sudo udevadm control --reload-rules && udevadm trigger
-    ```
+### 2. Package Build (ROS 1)
 
-## Usage (single camera)
+1. Install the required ROS 1 packages:
 
-1. Select whether you want raw video (pre-AGC (automatic gain control)), or
-   color video (post-AGC) by modifying the `raw` parameter in `flir_ros.launch`.
-1. Put the image size in the `width` and `height` parameters in the launch file.
-    For Flir 640, the width is 640 and the height is 512 for both raw and normal.
-1. Put a reasonable camera name in the `camera_name` field in `flir_ros.launch`.
-1. Put the path of the corresponding intrinsic parameter yaml file to the `intrinsic_url` field in `flir_ros.launch`. An example of the URL: `"package://flir_ros/camera_info/thermal_right_caminfo.yaml"`.
-    See section 3.2 of
-    [this](http://wiki.ros.org/camera_calibration_parsers#File_formats) link
-    for yaml file formats.
-1. Build the package with `catkin build -DCMAKE_BUILD_TYPE=Release`.
-1. Launch the `flir_ros.launch` file.
+   ```bash
+   sudo apt install ros-noetic-image-transport ros-noetic-cv-bridge ros-noetic-camera-info-manager
+   ```
 
-Thermal image data will be published to `/[camera]/image`, camera info will be published to `/[camera]/camera_info` and the rectified image will be published to `/[camera]/image_rect`.
+2. Install **flirpy** for interfacing with the FLIR Boson cameras via a simple Python API:
 
-## Multiple cameras
+   ```bash
+   pip install flirpy
+   ```
 
-The udev rule that you just installed will add additional symlinks for each flir camera based on its serial number. This gives a symlink that is unique to each camera, which is useful with multiple cameras. Examine the available serial numbers by running the following command:
+3. Ensure OpenCV is installed.
 
-```bash
-ls /dev/flir_boson*
-```
+4. Install V4L2 headers for Linux:
 
-And pass in the appropriate path to the driver. Then, put reasonable ros parameters in the launch file for each camera just like `flir_ros.launch`. See `multiple_flir_ros.launch` as an example.
+   ```bash
+   sudo apt install libv4l-dev
+   ```
 
+5. If needed, recompile the FSLP libraries (for FLIR Boson SDK):
+   - Navigate to the Boson SDK folder inside /script and then the `FSLP_Files` subfolder.
+   - Run `make` or `make all`, which attempts to build a 64-bit library based on your platform.
+
+6. Copy udev rules to create symlinks such as _/dev/flir_boson_serial_#####_ that ultimately point to _/dev/ttyACM#_ for easier setup:
+
+   ```bash
+   sudo cp 42-flir-ros.rules /etc/udev/rules.d
+   sudo udevadm control --reload-rules && sudo udevadm trigger
+   ```
+
+7. Clone this package into your ROS workspace and build it:
+
+   ```bash
+   catkin build --packages-select flir_ros_sync
+   ```
+
+8. Source the ROS 2 workspace after building:
+
+   ```bash
+   source devel/setup.bash
+   ```
+
+### 4. Review and Configure Launch Files
+
+- Review the launch files located in `/flir_ros_sync/launch/yamaha_atv`:
+   - **atv-both**: Used for launching the stereo setup.
+   - **test-single**: Used for testing on a single camera.
+   - Both launch files use **atv-single** as the base configuration.
+- Update `flir_id` to match your camera’s serial number and adjust other settings as needed for your project requirements.
+
+## Usage (Single Camera)
+
+1. Modify the `raw` parameter in the launch file (e.g., `test-single.launch`) to select between raw and colorized video.
+2. Set the correct image size by adjusting the `width` and `height` parameters.
+   - For a 640 FLIR camera, `width` should be set to 640 and `height` to 512.
+3. Update the `camera_name` field in the launch file with a suitable camera name.
+4. Save your camera's intrinsic parameters as a YAML file in `/flir_ros_sync/data/camera_info` and name it according to `camera_name` (see `/yamaha_atv/` for reference).
+5. Launch the driver with:
+
+   ```bash
+   ros2 launch flir_ros_sync test_single_cam.launch.py
+   ```
+
+Thermal image data will be published to `/[camera]/image`, camera info will be published to `/[camera]/camera_info`, and rectified image (not working for ROS1) data will be published to `/[camera]/image_rect`.
+
+## Multiple Cameras
+
+1. The udev rule that was installed creates unique symlinks for each FLIR camera based on its serial number, useful for multi-camera setups. You can list available serial numbers with:
+
+   ```bash
+   ls /dev/flir_boson*
+   ```
+
+2. To use multiple cameras, configure parameters and your cameras in a launch file as shown in the `atv-both.launch`. Each camera will need its own node with unique `flir_id` and `camera_name` parameters.
+
+3. Launch the driver with:
+
+   ```bash
+   roslaunch flir_ros_sync atv-both.launch
+   ```
+<!-- 
 ## Time Synchronization
 
-This package assumes that the camera is being triggered by a 60 hz pulse that aligns with system time.
-
-## Offline image rectification
-
-1. For data without rectification and camera info, use the `launch/flir_pub_info.launch` to publish this information.
-Change the bag file path in the launch file for different data.
-1. Change the intrinsic parameter yaml file by changing the intrinsic_url` entry in the launch file.
-1. Change the subscribing thermal image topic using the `thermal_topic` entry in the launch file.
-1. Change the publishing thermal image camera info topic using the `camera_info_topic` entry in the launch file.
-1. Change the frame id of the camera info frame using the `thermal_frame_id` entry in the launch file.
+If sync mode is set to **slave**, the Teensy triggers the cameras at 10 Hz. Otherwise, each camera generates its own 60 Hz pulse. Verify the `frame_rate` parameter in the launch file, which defaults to 10 Hz. This setting is important to ensure accurate time stamping, which is manually set at a 1/(frame_rate) interval. -->
 
 ## Notes
 
-* The `udev` rules will symlink all FLIR Boson cameras to `/dev/flir_boson_video` and `/dev/flir_boson_serial`.
-* The node will always output thermal images to `/[camera_name]/image` and output camera info to `/[camera_name]/camera_info`.
-* If you need to use multiple thermal cameras, you'll have to change the rule, as well as modify the launch file parameter `device_name`. Furthermore, you'll have to have one node per camera and have to assign individual camera names.
-* The FLIR Boson camera only requires a USB 2.0 port.
+* The `udev` rules create symlinks `/dev/flir_boson_video` and `/dev/flir_boson_serial` for FLIR Boson cameras.
+* The node publishes thermal images to `/[camera_name]/image` and camera info to `/[camera_name]/camera_info`.
+* For multiple thermal cameras, adjust the `flir_id` and `camera_name` in each camera's node configuration.
+* FLIR Boson cameras only require USB 2.0 ports.
 
 ## TODO
 
-* Integrate the FLIR Boson API, or run the node separately.
-* Output health metrics
-* Check for disconnections
+* Integrate the FLIR Boson SDK for NUC control, which is attempted in `trigger_ffc.py`.
+* Determine time set offset per camera system.
+* Add health metrics.
+* Monitor and handle device disconnections.
