@@ -3,9 +3,7 @@ Thermal sensing integration with driver and time synchronization
 
 ## Project Structure
 
-- **catkin_ws/src**
-  - **mmpug_common**: Generic driver
-  - **mmpug_flir_ros**: Stereo driver
-  - **mmpug_r5timesync**: Time sync implementation for the wildfire team
+- **/src**
+  - **flir_ros_sync**: Single cam and stereo driver implementation
 
-- **teensy_npt_shm_sync**: Time sync method with Teensy
+- **teensy_npt_shm_sync**: Time sync method with Teensy (if modifying current Teensy setup on ATV)
