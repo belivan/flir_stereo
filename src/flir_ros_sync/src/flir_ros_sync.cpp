@@ -65,7 +65,9 @@ namespace flir_ros_sync
 
     // 6. set gain mode and FFC(flat field correction, regarding image global illumination) mode
     set_gain_mode(gain_mode, serialPortRoot);
+    NODELET_INFO("Gain mode set to %d", get_gain_mode(serialPortRoot));
     set_ffc_mode(ffc_mode, serialPortRoot);
+    NODELET_INFO("FFC mode set to %d", get_ffc_mode(serialPortRoot));
     shutter(serialPortRoot); // Best practice: set FFC mode to manual and do FFC only once during initialization
 
     // 8. Initialize the buffers (mmap)
