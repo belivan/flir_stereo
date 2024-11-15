@@ -49,7 +49,7 @@ class FlirRos : public nodelet::Nodelet {
   object_detection::fd_guard fd;
   std::string deviceName;
   std::string serialPort;
-  int frame_rate = 1V0;
+  int frame_rate = 10;
   bool raw = true;
   int publish_image_sharing_every_n = 1000;
   int width = 640;   // use default if no param were given
