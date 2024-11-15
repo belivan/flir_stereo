@@ -3,17 +3,22 @@
     <arg name="left_flir_id" value="322011" />
     <arg name="right_flir_id" value="322008" />
 
+    <!-- Set frame rate param -->
+    <arg name="frame_rate" default="10"/>
+
     <!-- left and right thermal cameras -->
     <include file="$(find flir_ros_sync)/launch/yamaha_atv/atv-single.launch">
         <arg name="raw" value="$(arg raw)"/>
         <arg name="flir_id" value="$(arg left_flir_id)" />
         <arg name="camera_name" value="thermal_left" />
+        <arg name="frame_rate" value="$(arg frame_rate)" />
     </include>
 
     <include file="$(find flir_ros_sync)/launch/yamaha_atv/atv-single.launch">
         <arg name="raw" value="$(arg raw)"/>
         <arg name="flir_id" value="$(arg right_flir_id)" />
         <arg name="camera_name" value="thermal_right" />
+        <arg name="frame_rate" value="$(arg frame_rate)" />
     </include>
 
     <!-- Set sync mode for both cameras -->

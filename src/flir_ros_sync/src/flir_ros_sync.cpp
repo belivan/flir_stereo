@@ -33,14 +33,14 @@ namespace flir_ros_sync
     nh = getNodeHandle();
     private_nh = getPrivateNodeHandle();
 
+    // get ros parameters
+    get_ros_param();
+
     // unpack device_name symlink
-    std::string deviceName;
-    private_nh.getParam("device_name", deviceName);
     char deviceNameRoot[1024];
     char *deviceResult = realpath(deviceName.c_str(), deviceNameRoot);
     CHECK_FATAL(!deviceResult, "Serial port " << deviceName << " cannot be resolved!");
     NODELET_INFO_STREAM("Serial port " << deviceName << " resolved to " << deviceNameRoot);
-    get_ros_param(); // get the ros paramters from launch file
 
     // 1. Try to open the device
     fd.reset(open(deviceName.c_str(), O_RDWR));
@@ -55,27 +55,18 @@ namespace flir_ros_sync
                 "Device can't stream video!");
 
     // 3. Set the device format (default is raw)
-    private_nh.param("publish_image_sharing_every_n", publish_image_sharing_every_n, publish_image_sharing_every_n);
-    private_nh.param("raw", raw, raw);
     CHECK_FATAL(!set_format(fd, raw), "Unable to set video format!");
 
     // 4. unpack serial_port symlink
-    std::string serialPort;
-    private_nh.getParam("serial_port", serialPort);
     char serialPortRoot[1024];
     char *serialResult = realpath(serialPort.c_str(), serialPortRoot);
     CHECK_FATAL(!serialResult, "Serial port " << serialPort << " cannot be resolved!");
     NODELET_INFO_STREAM("Serial port " << serialPort << " resolved to " << serialPortRoot);
 
     // 6. set gain mode and FFC(flat field correction, regarding image global illumination) mode
-    private_nh.param("gain_mode", gain_mode, gain_mode);
-    private_nh.param("ffc_mode", ffc_mode, ffc_mode);
     set_gain_mode(gain_mode, serialPortRoot);
     set_ffc_mode(ffc_mode, serialPortRoot);
     shutter(serialPortRoot); // Best practice: set FFC mode to manual and do FFC only once during initialization
-
-    // 7. get signed timestamp offset in seconds, true capture time = message receival time + offset, should be negative if message arrive later than capture
-    private_nh.param("timestamp_offset", timestampOffset, timestampOffset);
 
     // 8. Initialize the buffers (mmap)
     CHECK_FATAL(!request_buffers(fd), "Requesting buffers failed!");
@@ -89,6 +80,7 @@ namespace flir_ros_sync
     // 10. Set up ROS publishers, now that we're confident we can stream.
     setup_ros();
 
+    // STREAMING THREAD
     stream_thread = std::thread([&]()
                                 {
     NODELET_INFO("Starting thread!");
@@ -242,6 +234,16 @@ namespace flir_ros_sync
 
   void FlirRos::get_ros_param()
   {
+    private_nh.param("publish_image_sharing_every_n", publish_image_sharing_every_n, publish_image_sharing_every_n);
+    private_nh.param("raw", raw, raw);
+    private_nh.param("gain_mode", gain_mode, gain_mode);
+    private_nh.param("ffc_mode", ffc_mode, ffc_mode);
+    // get signed timestamp offset in seconds, true capture time = message receival time + offset, should be negative if message arrive later than capture
+    private_nh.param("timestamp_offset", timestampOffset, timestampOffset);
+
+    private_nh.getParam("frame_rate", frame_rate);
+    private_nh.getParam("serial_port", serialPort);
+    private_nh.getParam("device_name", deviceName);
     private_nh.getParam("camera_name", camera_name);
     private_nh.getParam("intrinsic_url", intrinsic_url);
     private_nh.getParam("width", width);
@@ -299,14 +301,14 @@ namespace flir_ros_sync
       // take the 1/60s second since we are trigger the camera at 60hz
       // and the trigger is aligned with system time (CLOCK_REALTIME)
 
-      uint32_t one_tenth_nsec = 100000000;  // MODIFIED TO 10 HZ from one_sixtieth_nsec = 16666667;
+      uint32_t one_amount_nsec = 1000000000/frame_rate;
       time_t system_sec = systemtime.tv_sec;
       time_t system_nsec = systemtime.tv_nsec;
-      uint32_t trigger_nsec = static_cast<uint32_t>(system_nsec) - (static_cast<uint32_t>(system_nsec) % one_tenth_nsec) + static_cast<uint32_t>(timestampOffset * 1e9);
+      uint32_t trigger_nsec = static_cast<uint32_t>(system_nsec) - (static_cast<uint32_t>(system_nsec) % one_amount_nsec) + static_cast<uint32_t>(timestampOffset * 1e9);
 
       // Handle potential overflow of nanoseconds
-      if (trigger_nsec >= 1e9) {
-        trigger_nsec -= 1e9;
+      if (trigger_nsec >= 1000000000) {
+        trigger_nsec -= 1000000000;
         system_sec += 1;
       }
 
@@ -338,54 +340,6 @@ namespace flir_ros_sync
       img->encoding = sensor_msgs::image_encodings::TYPE_16UC1;
       img->data.insert(img->data.begin(), reinterpret_cast<char *>(buffer),
                        reinterpret_cast<char *>(buffer) + bytes_used);
-
-      /*if (publish_image_sharing_every_n < 1000)
-      {
-        static nv2ros::NvImageMessage nv_image_message(width, height, time);
-        static float prev_p_min = 100000;
-        static float prev_p_max = 0;
-        static int count = 0;
-        count++;
-        if (count == publish_image_sharing_every_n)
-        {
-          count = 0;
-
-          int pitch = nv_image_message.get_pitch();
-          void *data;
-          nv_image_message.mem_map(&data);
-          nv_image_message.mem_sync_for_cpu(&data);
-
-          uint16_t *image_pixels = (uint16_t *)buffer;
-          float p_min = 1000000000.f;
-          float p_max = 0;
-          for (int w = 0; w < width; w++)
-          {
-            for (int h = 0; h < height; h++)
-            {
-              float p = image_pixels[h * width + w];
-              p_min = std::min(p, p_min);
-              p_max = std::max(p, p_max);
-              p = (p - prev_p_min) / std::max(prev_p_max - prev_p_min, 0.00001f);
-              p = std::max(0.f, std::min(1.f, p));
-              uint8_t p_int = p * 255.f;
-
-              ((uint8_t *)(data))[h * pitch + w * 4] = p_int;
-              ((uint8_t *)(data))[h * pitch + w * 4 + 1] = p_int;
-              ((uint8_t *)(data))[h * pitch + w * 4 + 2] = p_int;
-              ((uint8_t *)(data))[h * pitch + w * 4 + 3] = 255;
-            }
-          }
-          prev_p_min = p_min;
-          prev_p_max = p_max;
-          // ROS_INFO_STREAM("min max: " << p_min << " " << p_max);
-
-          nv_image_message.mem_sync_for_device(&data);
-          nv_image_message.mem_unmap(&data);
-
-          nv_image_message.set_stamp(time);
-          nv_image_pub->publish(nv_image_message);
-        }
-      }*/
     }
     else
     { // Use opencv to convert from YUV420 to RGB
@@ -405,40 +359,6 @@ namespace flir_ros_sync
 
       img->step = width * bytes_per_pixel;
       img->encoding = sensor_msgs::image_encodings::RGB8;
-      /*if (publish_image_sharing_every_n < 1000)
-      {
-        static nv2ros::NvImageMessage nv_image_message(width, height, time);
-        static int count = 0;
-        count++;
-        if (count == publish_image_sharing_every_n)
-        {
-          count = 0;
-
-          int pitch = nv_image_message.get_pitch();
-          void *data;
-          nv_image_message.mem_map(&data);
-          nv_image_message.mem_sync_for_cpu(&data);
-
-          std::vector<uint8_t> const &pixelArray = img->data;
-          for (int w = 0; w < width; w++)
-          {
-            for (int h = 0; h < height; h++)
-            {
-              const int currentPixelIndex = (h * width + w) * bytes_per_pixel;
-              ((uint8_t *)(data))[h * pitch + w * 4] = pixelArray[currentPixelIndex];         // red
-              ((uint8_t *)(data))[h * pitch + w * 4 + 1] = pixelArray[currentPixelIndex + 1]; // green
-              ((uint8_t *)(data))[h * pitch + w * 4 + 2] = pixelArray[currentPixelIndex + 2]; // blue
-              ((uint8_t *)(data))[h * pitch + w * 4 + 3] = 255;                              // alpha
-            }
-          }
-
-          nv_image_message.mem_sync_for_device(&data);
-          nv_image_message.mem_unmap(&data);
-
-          nv_image_message.set_stamp(time);
-          nv_image_pub->publish(nv_image_message);
-        }
-      }*/
     }
     // publish raw image
     image_pub.publish(img, cam_info_ptr);

@@ -7,6 +7,7 @@
         <arg name="raw" value="$(arg raw)"/>
         <arg name="flir_id" value="$(arg flir_id)" />
         <arg name="camera_name" value="thermal_left" />
+        <arg name="frame_rate" value="60" />
     </include>
 
     <node pkg="flir_ros_sync" type="set_sync_mode" name="set_flir_sync_mode" output="screen">
