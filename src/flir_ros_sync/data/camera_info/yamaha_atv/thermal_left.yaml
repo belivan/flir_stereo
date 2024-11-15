@@ -10,7 +10,7 @@ camera_matrix:
          0, 412.14064666, 249.36239648,
          0, 0, 1]
 
-distortion_model: radtan
+distortion_model: equidistant
 distortion_coefficients:
   rows: 1
   cols: 4

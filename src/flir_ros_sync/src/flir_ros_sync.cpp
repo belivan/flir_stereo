@@ -273,23 +273,50 @@ namespace flir_ros_sync
   }
 
   sensor_msgs::ImagePtr FlirRos::rectify_image(
-      const sensor_msgs::ImageConstPtr &image_msg,
-      const sensor_msgs::CameraInfoConstPtr &cam_info_ptr)
+    const sensor_msgs::ImageConstPtr &image_msg,
+    const sensor_msgs::CameraInfoConstPtr &cam_info_ptr)
   {
-    // update camera info
-    cam_model.fromCameraInfo(cam_info_ptr);
-    // get the image to cv format
-    const cv::Mat image = cv_bridge::toCvShare(image_msg)->image;
-    cv::Mat rect_image;
-
-    // rectify the image
-    cam_model.rectifyImage(image, rect_image, CV_INTER_LINEAR);
-
-    // publish the rectified image
-    const sensor_msgs::ImagePtr rect_msg =
-        cv_bridge::CvImage(image_msg->header, image_msg->encoding, rect_image)
-            .toImageMsg();
-    return rect_msg;
+      // Validate camera info
+      if (!cam_info_ptr || 
+          cam_info_ptr->D.empty() || 
+          cam_info_ptr->K[0] == 0.0) {
+          NODELET_WARN("Invalid camera calibration data");
+          return nullptr;
+      }
+  
+      try {
+          // Update camera model
+          cam_model.fromCameraInfo(cam_info_ptr);
+  
+          // Convert 16-bit to 8-bit if needed
+          cv::Mat image;
+          // if (image_msg->encoding == sensor_msgs::image_encodings::TYPE_16UC1) {
+              // cv::Mat raw = cv_bridge::toCvShare(image_msg)->image;
+              // raw.convertTo(image, CV_8UC1);
+          //} else {
+              image = cv_bridge::toCvShare(image_msg, image_msg->encoding)->image;
+          //}
+  
+          // Rectify
+          cv::Mat rect_image;
+          cam_model.rectifyImage(image, rect_image, CV_INTER_LINEAR);
+  
+          // Create message with same size as input
+          sensor_msgs::ImagePtr rect_msg = 
+              cv_bridge::CvImage(image_msg->header,
+                               image_msg->encoding,
+                               rect_image).toImageMsg();
+  
+          return rect_msg;
+      }
+      catch (const cv::Exception& e) {
+          NODELET_ERROR_STREAM("OpenCV error: " << e.what());
+          return nullptr;
+      }
+      catch (const std::exception& e) {
+          NODELET_ERROR_STREAM("Error: " << e.what());
+          return nullptr;
+      }
   }
 
   void FlirRos::get_frame_time(ros::Time &frame_time)
@@ -361,10 +388,10 @@ namespace flir_ros_sync
       img->encoding = sensor_msgs::image_encodings::RGB8;
     }
     // publish raw image
-    image_pub.publish(img, cam_info_ptr);
+    object_detection::publish_if_subscribed(image_pub, img, cam_info_ptr);
     // rectify and publish rectified image
-    // const sensor_msgs::ImagePtr rect_msg = rectify_image(img, cam_info_ptr);
-    // rect_image_pub.publish(rect_msg);
+    const sensor_msgs::ImagePtr rect_msg = rectify_image(img, cam_info_ptr);
+    object_detection::publish_if_subscribed(rect_image_pub, rect_msg);
   }
 
   void FlirRos::publish_transform(const ros::Time &time, const tf::Vector3 &trans,
@@ -396,16 +423,26 @@ namespace flir_ros_sync
 
   FlirRos::~FlirRos()
   {
-    NODELET_INFO("Destructor called");
-
-    if (stream)
-    {
-      stream = false;
-      stream_thread.join();
-
-      enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
-      CHECK_FATAL(ioctl(fd, VIDIOC_STREAMOFF, &type) < 0,
-                  "Couldn't properly close the stream!");
-    }
+      NODELET_INFO("Starting cleanup...");
+      
+      // Stop streaming and join thread
+      stream.store(false);
+      if (stream_thread.joinable()) {
+          try {
+              stream_thread.join();
+          } catch (const std::exception& e) {
+              NODELET_ERROR_STREAM("Thread join failed: " << e.what());
+          }
+      }
+  
+      // Stop V4L2 stream
+      if (fd >= 0) {
+          enum v4l2_buf_type type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+          if (ioctl(fd, VIDIOC_STREAMOFF, &type) < 0) {
+              NODELET_ERROR_STREAM("Stream stop failed: " << strerror(errno));
+          }
+      }
+  
+      NODELET_INFO("Cleanup complete");
   }
 } // namespace flir_ros_sync
