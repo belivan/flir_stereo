@@ -267,8 +267,8 @@ namespace flir_ros_sync
     object_detection::disable_transports(&nh, rect_topic_name);
     image_pub = it->advertiseCamera(camera_topic_name, 1);
     rect_image_pub = it->advertise(rect_topic_name, 1);
-    std::vector<std::string> topic_names;
-    topic_names.push_back(("nv_" + camera_name));
+    // std::vector<std::string> topic_names;
+    // topic_names.push_back(("nv_" + camera_name));
     // nv_image_pub = new nv2ros::Publisher(nh, topic_names);
   }
 
