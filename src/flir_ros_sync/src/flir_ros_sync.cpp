@@ -289,15 +289,9 @@ namespace flir_ros_sync
       try {
           // Update camera model
           cam_model.fromCameraInfo(cam_info_ptr);
-  
-          // Convert 16-bit to 8-bit if needed
+
           cv::Mat image;
-          // if (image_msg->encoding == sensor_msgs::image_encodings::TYPE_16UC1) {
-              // cv::Mat raw = cv_bridge::toCvShare(image_msg)->image;
-              // raw.convertTo(image, CV_8UC1);
-          //} else {
-              image = cv_bridge::toCvShare(image_msg, image_msg->encoding)->image;
-          //}
+          image = cv_bridge::toCvShare(image_msg, image_msg->encoding)->image;
   
           // Rectify
           cv::Mat rect_image;

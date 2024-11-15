@@ -3,6 +3,7 @@ image_width: 640
 image_height: 512
 camera_name: thermal_right
 
+# Camera Matrix (3x3)
 camera_matrix:
   rows: 3
   cols: 3
@@ -10,22 +11,46 @@ camera_matrix:
          0, 411.86803279, 250.196047,
          0, 0, 1]
 
-distortion_model: equidistant
+# Distortion Model and Coefficients
+distortion_model: plumb_bob
 distortion_coefficients:
   rows: 1
   cols: 4
   data: [-0.36536057, 0.11665366, 0.00005537, 0.00029121]
 
-rectification_matrix: # identity
+# Rectification Matrix (Identity 3x3)
+rectification_matrix:
   rows: 3
   cols: 3
-  data: [1, 0, 0, 
+  data: [1, 0, 0,
          0, 1, 0,
          0, 0, 1]
 
+# Projection Matrix (3x4)
 projection_matrix:
   rows: 3
   cols: 4
   data: [411.24635207, 0, 311.62836174, 0,
          0, 411.86803279, 250.196047, 0,
          0, 0, 1, 0]
+
+# Camera Resolution
+resolution: [640, 512]
+
+# ROS Topic
+rostopic: /thermal_right/image
+
+# Calibration Data
+cam_overlaps: [0]  # No overlap with other cameras
+camera_model: pinhole
+intrinsics: [411.24635207, 411.86803279, 311.62836174, 250.196047]
+distortion_coeffs: [-0.36536057, 0.11665366, 0.00005537, 0.00029121]
+
+# Camera-to-camera Transformation (T_cn_cnm1)
+T_cn_cnm1:
+  rows: 4
+  cols: 4
+  data: [0.9999557223040556, 0.0007732890966522381, 0.009378456980819886, -0.3346788262804142,
+         -0.0007384429007518499, 0.9999928138852009, -0.0037184512951031127, -0.0016678810024378017,
+         -0.00938126502399435, 0.0037113611956698027, 0.9999491075372879, 0.0055291886133093035,
+         0.0, 0.0, 0.0, 1.0]
