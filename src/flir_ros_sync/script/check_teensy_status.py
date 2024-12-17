@@ -65,7 +65,7 @@ class TeensySerialPublisher(Node):
                     msg = String()
                     msg.data = data
                     self.pub.publish(msg)
-                    self.get_logger().info(f"Published data: {data}")
+                    # self.get_logger().info(f"Published data: {data}")
             except serial.SerialException as e:
                 self.get_logger().error(f"Serial read error: {e}")
             except UnicodeDecodeError as e:

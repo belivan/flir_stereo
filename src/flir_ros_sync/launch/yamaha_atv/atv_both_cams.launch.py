@@ -11,8 +11,9 @@ def generate_launch_description():
     declare_raw_arg = DeclareLaunchArgument("raw", default_value="true", description="Use raw image format")
     declare_left_flir_id_arg = DeclareLaunchArgument("left_flir_id", default_value="322011", description="Left FLIR camera ID")
     declare_right_flir_id_arg = DeclareLaunchArgument("right_flir_id", default_value="322008", description="Right FLIR camera ID")
-
+    declare_frame_rate_arg = DeclareLaunchArgument("frame_rate", default_value="10", description="Frame rate")
     # Get the launch configurations
+    frame_rate = LaunchConfiguration("frame_rate")
     raw = LaunchConfiguration("raw")
     left_flir_id = LaunchConfiguration("left_flir_id")
     right_flir_id = LaunchConfiguration("right_flir_id")
@@ -27,7 +28,7 @@ def generate_launch_description():
             'raw': raw,
             'flir_id': left_flir_id,
             'camera_name': 'thermal_left',
-            'frame_rate': '10'
+            'frame_rate': frame_rate
         }.items(),
     )
 
@@ -37,7 +38,7 @@ def generate_launch_description():
             'raw': raw,
             'flir_id': right_flir_id,
             'camera_name': 'thermal_right',
-            'frame_rate': '10'
+            'frame_rate': frame_rate
         }.items(),
     )
 
@@ -49,7 +50,7 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {
-                'sync_mode': 2,  # 0 disable, 1 master, 2 slave
+                'sync_mode': 0,  # 0 disable, 1 master, 2 slave
                 'serial_list': [
                     ["flir_boson_serial_", left_flir_id],
                     ["flir_boson_serial_", right_flir_id]
