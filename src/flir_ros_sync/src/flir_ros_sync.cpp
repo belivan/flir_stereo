@@ -159,6 +159,14 @@ void FlirRos::initializeDevice() {
     LOG_INFO("Verified FFC mode set to %d", get_ffc_mode(device_.serial_port));
     shutter(device_.serial_port);  // essentially FFC and only works when FFC mode is 0, 1, or 3
 
+    // Configure telemetry
+    FLR_RESULT result = telemetrySetState(FLR_ENABLE);
+    if (result != R_SUCCESS) {
+        LOG_ERROR("Failed to enable telemetry. Error code: %d", result);
+        throw std::runtime_error("Telemetry enable failed");
+    }
+    LOG_INFO("Telemetry enabled successfully");
+
     // Set format and request buffers
     if (!setFormat(device_.fd, config_.raw)) {
         throw std::runtime_error("Failed to set video format");
@@ -210,6 +218,7 @@ void FlirRos::streamingLoop() {
         frame_count_++;
         if (frame_count_ % config_.send_every_n == 0) {
             rclcpp::Time frame_time;
+            extractTimestamp(device_.buffer, bufferinfo.bytesused, frame_time);
             getFrameTime(frame_time);
             publishFrame(bufferinfo.bytesused, frame_time);
             publishTransforms(frame_time);
@@ -294,6 +303,20 @@ void FlirRos::getFrameTime(rclcpp::Time& frame_time) {
     } else {
         frame_time = this->now();
     }
+}
+
+void FlirRos::extractTimestamp(void* buffer, size_t buffer_size, rclcpp::Time& frame_time) {
+    if (buffer_size < 284) {  // Ensure buffer is large enough
+        LOG_ERROR("Buffer size too small for telemetry extraction");
+        return;
+    }
+
+    // Extract the 4-byte timestamp starting at BYTE 280
+    uint32_t timestamp_msec = *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(buffer) + 280);
+
+    // Convert milliseconds to ROS time
+    // frame_time = rclcpp::Time(timestamp_msec * 1e6);  // Convert to nanoseconds
+    LOG_INFO("Extracted Telemetry Timestamp: %u ms", timestamp_msec);
 }
 
 void FlirRos::publishFrame(uint32_t bytes_used, const rclcpp::Time& time) {

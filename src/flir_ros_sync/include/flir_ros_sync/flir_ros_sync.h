@@ -27,6 +27,12 @@
 #include "fd_guard.h"
 #include "image_transport.h"
 
+extern "C" {
+    #include "EnumTypes.h"
+    #include "ReturnCodes.h"
+    #include "Client_API.h"
+}
+
 namespace flir_ros_sync {
 
 struct CameraConfig {
@@ -76,6 +82,7 @@ private:
 
     // Streaming methods
     void streamingLoop();
+    void extractTimestamp(void* buffer, size_t buffer_size, rclcpp::Time& frame_time);
     void publishFrame(uint32_t bytes_used, const rclcpp::Time& time);
     sensor_msgs::msg::Image::SharedPtr rectify_image(
                             const sensor_msgs::msg::Image::ConstSharedPtr& image_msg,

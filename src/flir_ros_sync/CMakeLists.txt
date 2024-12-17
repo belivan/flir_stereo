@@ -31,6 +31,41 @@ include_directories(
   ${OpenCV_INCLUDE_DIRS}
 )
 
+# Define the Boson SDK source directory
+set(BOSON_SDK_CLIENT_FILES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/script/Boson_SDK/ClientFiles_C)
+set(BOSON_SDK_FSLP_FILES_DIR ${CMAKE_CURRENT_SOURCE_DIR}/script/Boson_SDK/FSLP_Files/src)
+set(BOSON_SDK_FSLP_INC_DIR ${CMAKE_CURRENT_SOURCE_DIR}/script/Boson_SDK/FSLP_Files/src/inc)
+set(BOSON_SDK_FSLP_LINUX_DIR ${CMAKE_CURRENT_SOURCE_DIR}/script/Boson_SDK/FSLP_Files/src/linux)
+
+# Add SDK source files
+# set(BOSON_SDK_SRCS
+#   ${BOSON_SDK_SRC_DIR}/Client_API.c
+#   ${BOSON_SDK_SRC_DIR}/EnumTypes.h
+#   ${BOSON_SDK_SRC_DIR}/ReturnCodes.h
+#   ${BOSON_SDK_SRC_DIR}/Client_Packager.c
+# )
+file(GLOB BOSON_SDK_SRCS
+  ${BOSON_SDK_CLIENT_FILES_DIR}/*.c
+  ${BOSON_SDK_FSLP_FILES_DIR}/*.c
+  ${BOSON_SDK_FSLP_INC_DIR}/*.h
+  ${BOSON_SDK_FSLP_LINUX_DIR}/*.c
+  ${BOSON_SDK_FSLP_LINUX_DIR}/*.h
+)
+
+set_source_files_properties(${BOSON_SDK_SRCS} PROPERTIES LANGUAGE C)
+
+# Create a static library for BOSON_SDK
+add_library(Boson_SDK STATIC
+  ${BOSON_SDK_SRCS}
+)
+
+# Include directories for BOSON_SDK
+target_include_directories(Boson_SDK PUBLIC
+  ${BOSON_SDK_CLIENT_FILES_DIR}
+  ${BOSON_SDK_FSLP_INC_DIR}
+  ${BOSON_SDK_FSLP_LINUX_DIR}
+)
+
 # Library
 add_library(${PROJECT_NAME} SHARED
   include/flir_ros_sync/flir_ros_sync.h
@@ -42,9 +77,21 @@ add_library(${PROJECT_NAME} SHARED
   src/serial.cpp
 )
 
+# Include directories
+target_include_directories(${PROJECT_NAME} PRIVATE
+  include
+  ${OpenCV_INCLUDE_DIRS}
+  ${BOSON_SDK_CLIENT_FILES_DIR}
+  ${BOSON_SDK_FSLP_INC_DIR}
+  ${BOSON_SDK_FSLP_LINUX_DIR}
+)
+
 # Link against libraries
 target_link_libraries(${PROJECT_NAME}
   ${OpenCV_LIBS}
+  Boson_SDK
+  # ${BOSON_SDK_SRC_DIR}/FSLP_32.so
+  # ${BOSON_SDK_SRC_DIR}/FSLP_64.so
   pthread
 )
 
