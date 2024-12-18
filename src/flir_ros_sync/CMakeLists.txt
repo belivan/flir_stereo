@@ -24,6 +24,7 @@ find_package(tf2_geometry_msgs REQUIRED)
 find_package(geometry_msgs REQUIRED)
 find_package(image_geometry REQUIRED)
 find_package(OpenCV REQUIRED)
+find_package(std_msgs REQUIRED) 
 
 # Include directories
 include_directories(
@@ -125,6 +126,7 @@ ament_target_dependencies(${PROJECT_NAME}
   geometry_msgs
   image_geometry
   OpenCV
+  std_msgs
 )
 
 

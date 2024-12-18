@@ -31,6 +31,7 @@
   <build_depend>geometry_msgs</build_depend> 
   <build_depend>image_geometry</build_depend>
   <build_depend>opencv</build_depend> <!-- OpenCV name may vary -->
+  <build_depend>std_msgs</build_depend>
 
   <!-- Execution dependencies -->
   <exec_depend>rclcpp</exec_depend>
@@ -45,6 +46,7 @@
   <exec_depend>geometry_msgs</exec_depend>
   <exec_depend>image_geometry</exec_depend>
   <exec_depend>opencv</exec_depend> <!-- OpenCV name may vary -->
+  <exec_depend>std_msgs</exec_depend>
 
   <!-- Python dependencies -->
   <build_depend>flirpy</build_depend>

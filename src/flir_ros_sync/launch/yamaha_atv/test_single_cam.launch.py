@@ -58,13 +58,13 @@ def generate_launch_description():
         ]
     )
 
-    # Optional: Teensy Status publisher
-    teensy_serial_publisher = Node(
-        package='flir_ros_sync',
-        executable='check_teensy_status.py',
-        name='teensy_serial_publisher',
-        output='screen'
-    )
+    # # Optional: Teensy Status publisher
+    # teensy_serial_publisher = Node(
+    #     package='flir_ros_sync',
+    #     executable='check_teensy_status.py',
+    #     name='teensy_serial_publisher',
+    #     output='screen'
+    # )
 
     # Return the LaunchDescription with the components
     return LaunchDescription([
@@ -73,5 +73,5 @@ def generate_launch_description():
         camera_launch,
         set_sync_mode_node,
         ffc_trigger_node,
-        teensy_serial_publisher
+        # teensy_serial_publisher
     ])

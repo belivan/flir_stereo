@@ -6,6 +6,7 @@
 #include <sys/mman.h>
 #include <cstdlib>
 #include <chrono>
+#include <arpa/inet.h> 
 
 // V4L2 includes
 #include <linux/videodev2.h>
@@ -52,6 +53,8 @@ FlirRos::~FlirRos() {
             LOG_ERROR("Failed to stop streaming");
         }
     }
+
+    Close();
 }
 
 void FlirRos::initialize() {
@@ -159,8 +162,28 @@ void FlirRos::initializeDevice() {
     LOG_INFO("Verified FFC mode set to %d", get_ffc_mode(device_.serial_port));
     shutter(device_.serial_port);  // essentially FFC and only works when FFC mode is 0, 1, or 3
 
-    // Configure telemetry
-    FLR_RESULT result = telemetrySetState(FLR_ENABLE);
+    //Initialize FLIR SDK
+
+    // Open device
+    std::string port_name = device_.serial_port;
+    
+    // Lookup port number using a helper function using the port name
+    int32_t port_num = FSLP_lookup_port_id(const_cast<char*>(port_name.c_str()), port_name.length());
+    
+    if (port_num == -1) {
+        // Handle error: Port not found
+        throw std::runtime_error("Invalid serial port: " + port_name);
+    }
+
+    FLR_RESULT result = Initialize(port_num, 921600);
+    if (result != FLR_COMM_OK) {
+        LOG_ERROR("Failed to initialize FLIR SDK. Error code: %d", result);
+        throw std::runtime_error("FLIR SDK initialization failed");
+    }
+    LOG_INFO("FLIR SDK initialized successfully");
+
+    // Enable telemetry
+    result = telemetrySetState(FLR_ENABLE);
     if (result != R_SUCCESS) {
         LOG_ERROR("Failed to enable telemetry. Error code: %d", result);
         throw std::runtime_error("Telemetry enable failed");
@@ -194,6 +217,9 @@ void FlirRos::setupROS() {
     // Advertise image topics
     publisher_.image_pub = publisher_.it->advertiseCamera(publisher_.camera_topic_name, 10);
     publisher_.rect_image_pub = publisher_.it->advertise(publisher_.rect_topic_name, 10);
+
+    // Init timestamp publisher
+    publisher_.timestamp_pub = this->create_publisher<std_msgs::msg::UInt32>(config_.camera_name+"/telemetry_timestamp", 10);
 }
 
 void FlirRos::streamingLoop() {
@@ -306,17 +332,30 @@ void FlirRos::getFrameTime(rclcpp::Time& frame_time) {
 }
 
 void FlirRos::extractTimestamp(void* buffer, size_t buffer_size, rclcpp::Time& frame_time) {
-    if (buffer_size < 284) {  // Ensure buffer is large enough
+    constexpr size_t TIMESTAMP_OFFSET = 280;  // Byte offset for the timestamp
+    constexpr size_t TIMESTAMP_SIZE = 4;      // Size of the timestamp in bytes
+
+    if (buffer_size < TIMESTAMP_OFFSET + TIMESTAMP_SIZE) {
         LOG_ERROR("Buffer size too small for telemetry extraction");
         return;
     }
 
-    // Extract the 4-byte timestamp starting at BYTE 280
-    uint32_t timestamp_msec = *reinterpret_cast<uint32_t*>(static_cast<uint8_t*>(buffer) + 280);
+    // Safely extract 4 bytes starting at offset 280
+    uint32_t timestamp_msec = 0;
+    uint8_t* buffer_ptr = static_cast<uint8_t*>(buffer) + TIMESTAMP_OFFSET;
+    std::memcpy(&timestamp_msec, buffer_ptr, TIMESTAMP_SIZE);
+
+    // Convert from big-endian to host byte order
+    timestamp_msec = ntohl(timestamp_msec);
+
+    // Convert and publish the timestamp
+    std_msgs::msg::UInt32 timestamp_msg;
+    timestamp_msg.data = timestamp_msec;
+    publisher_.timestamp_pub->publish(timestamp_msg);
 
     // Convert milliseconds to ROS time
     // frame_time = rclcpp::Time(timestamp_msec * 1e6);  // Convert to nanoseconds
-    LOG_INFO("Extracted Telemetry Timestamp: %u ms", timestamp_msec);
+    // LOG_INFO("Extracted Telemetry Timestamp: %u ms", timestamp_msec);
 }
 
 void FlirRos::publishFrame(uint32_t bytes_used, const rclcpp::Time& time) {

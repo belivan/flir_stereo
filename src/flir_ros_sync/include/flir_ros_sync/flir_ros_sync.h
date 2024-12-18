@@ -19,6 +19,7 @@
 #include <sensor_msgs/msg/image.hpp>
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <cv_bridge/cv_bridge.h>
+#include <std_msgs/msg/u_int32.hpp>
 
 // OpenCV includes
 #include <opencv2/opencv.hpp>
@@ -31,6 +32,8 @@ extern "C" {
     #include "EnumTypes.h"
     #include "ReturnCodes.h"
     #include "Client_API.h"
+    #include "UART_Connector.h"
+    #include "serialPortAdapter.h"
 }
 
 namespace flir_ros_sync {
@@ -57,6 +60,9 @@ struct DeviceInfo {
 };
 
 struct PublisherContext {
+    // temp timestamp pub
+    rclcpp::Publisher<std_msgs::msg::UInt32>::SharedPtr timestamp_pub;
+
     std::shared_ptr<image_transport::ImageTransport> it;
     std::shared_ptr<camera_info_manager::CameraInfoManager> cinfo;
     image_transport::CameraPublisher image_pub;
