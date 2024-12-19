@@ -22,6 +22,14 @@
 
 namespace flir_ros_sync {
 
+size_t IMAGE_SIZE;
+size_t TELEMETRY_SIZE;
+size_t TOTAL_SIZE;
+size_t PAGE_SIZE;
+size_t ALIGNED_SIZE;
+size_t TELEMETRY_OFFSET;
+size_t TIMESTAMP_OFFSET;
+
 FlirRos::FlirRos(const rclcpp::NodeOptions& options)
     : Node("flir_ros_sync", options),
         config_{},
@@ -183,17 +191,12 @@ void FlirRos::initializeDevice() {
     }
     LOG_INFO("FLIR SDK initialized successfully");
 
-    // Enable telemetry
-    result = telemetrySetState(FLR_ENABLE);
+    // Set telemetry location to END before configuring buffers
+    result = telemetrySetLocation(FLR_TELEMETRY_LOC_BOTTOM);
     if (result != R_SUCCESS) {
-        LOG_ERROR("Failed to enable telemetry. Error code: %d", result);
-        throw std::runtime_error("Telemetry enable failed");
+        LOG_ERROR("Failed to set telemetry location to END. Error code: %d", result);
+        throw std::runtime_error("Failed to set telemetry location");
     }
-    // result = telemetrySetLocation(FLR_TELEMETRY_LOC_END);
-    // if (result != R_SUCCESS) {
-    //     LOG_ERROR("Failed to set telemetry location. Error code: %d", result);
-    //     throw std::runtime_error("Failed to set telemetry location");
-    // }
     
     FLR_TELEMETRY_LOC_E location;
     result = telemetryGetLocation(&location);
@@ -202,14 +205,29 @@ void FlirRos::initializeDevice() {
         throw std::runtime_error("Failed to get telemetry location");
     }
     LOG_INFO("Telemetry location set to %d", location);
+
+    // Enable telemetry
+    result = telemetrySetState(FLR_ENABLE);
+    if (result != R_SUCCESS) {
+        LOG_ERROR("Failed to enable telemetry. Error code: %d", result);
+        throw std::runtime_error("Telemetry enable failed");
+    }
     
     FLR_ENABLE_E state;
     result = telemetryGetState(&state);
-    if (result != R_SUCCESS) {
-        LOG_ERROR("Failed to set telemetry location. Error code: %d", result);
-        throw std::runtime_error("Telemetry enable failed");
+    if (result == R_SUCCESS && state == FLR_ENABLE) {
+        LOG_INFO("Telemetry state: ENABLED");
+    } else {
+        LOG_ERROR("Telemetry state is NOT ENABLED");
     }
-    LOG_INFO("Telemetry state set to %d", state);
+
+    IMAGE_SIZE = config_.width * config_.height * 2;
+    TELEMETRY_SIZE = 640 * 2;
+    TOTAL_SIZE = IMAGE_SIZE + TELEMETRY_SIZE;
+    PAGE_SIZE = sysconf(_SC_PAGE_SIZE);
+    ALIGNED_SIZE = ((TOTAL_SIZE + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE;
+    TELEMETRY_OFFSET = IMAGE_SIZE;
+    TIMESTAMP_OFFSET = TELEMETRY_OFFSET + 280;
 
     // Set format and request buffers
     if (!setFormat(device_.fd, config_.raw)) {
@@ -297,15 +315,17 @@ bool FlirRos::setFormat(int fd, bool raw) {
     format.fmt.pix.width = config_.width;
     format.fmt.pix.height = config_.height;
     format.fmt.pix.pixelformat = raw ? V4L2_PIX_FMT_Y16 : V4L2_PIX_FMT_YUV420;
+    format.fmt.pix.sizeimage = ALIGNED_SIZE;
 
     if (ioctl(fd, VIDIOC_S_FMT, &format) < 0) {
-        LOG_ERROR("Failed to set video format");
+        LOG_ERROR("Failed to set format with size %zu", ALIGNED_SIZE);
         return false;
     }
     return true;
 }
 
 bool FlirRos::requestBuffers(int fd) {
+
     struct v4l2_requestbuffers req;
     std::memset(&req, 0, sizeof(req));
     req.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
@@ -328,14 +348,26 @@ bool FlirRos::requestBuffers(int fd) {
         return false;
     }
 
+    // Verify buffer size is sufficient
+    if (query_buffer.length < ALIGNED_SIZE) {
+        LOG_ERROR("Buffer size too small: got %d bytes, need %zu bytes", 
+                 query_buffer.length, ALIGNED_SIZE);
+        return false;
+    }
+
+    // Map buffer
     device_.buffer = mmap(nullptr, query_buffer.length, PROT_READ | PROT_WRITE, MAP_SHARED, fd, query_buffer.m.offset);
     if (device_.buffer == MAP_FAILED) {
         LOG_ERROR("Failed to mmap buffer");
         return false;
     }
 
+    // Zero buffer
     std::memset(device_.buffer, 0, query_buffer.length);
-    LOG_INFO("Allocated buffer of size %d KB", query_buffer.length / 1024);
+    LOG_INFO("Allocated buffer of size %d KB (Image: %zu KB, Telemetry: %zu KB)", 
+             query_buffer.length / 1024,
+             IMAGE_SIZE / 1024,
+             TELEMETRY_SIZE / 1024);
     return true;
 }
 
@@ -369,9 +401,10 @@ void FlirRos::getFrameTime(rclcpp::Time& frame_time) {
 }
 
 void FlirRos::extractTimestamp(void* buffer, size_t buffer_size, rclcpp::Time& frame_time) {
-    constexpr size_t TIMESTAMP_OFFSET = 280;
     constexpr size_t TIMESTAMP_SIZE = 4;
-    constexpr size_t MINIMUM_BUFFER_SIZE = TIMESTAMP_OFFSET + TIMESTAMP_SIZE;
+    const size_t MINIMUM_BUFFER_SIZE = TIMESTAMP_OFFSET + TIMESTAMP_SIZE;
+
+    // LOG_INFO("Buffer size: %zu bytes", buffer_size);
 
     // More thorough buffer validation
     if (!buffer || buffer_size < MINIMUM_BUFFER_SIZE) {
