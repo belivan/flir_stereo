@@ -3,11 +3,15 @@
 import rclpy
 from rclpy.node import Node
 from std_msgs.msg import String
+from std_msgs.msg import UInt64
 import serial
 import glob
 import time
 import sys
 
+HEADER = 0x55AA
+FOOTER = 0x66BB
+PACKET_SIZE = 8  # 2 bytes header + 4 bytes timestamp + 2 bytes footer
 
 def find_teensy_port():
     """
@@ -34,8 +38,9 @@ def find_teensy_port():
 class TeensySerialPublisher(Node):
     def __init__(self):
         super().__init__('teensy_serial_publisher')
-        self.pub = self.create_publisher(String, '/teensy_data', 10)
-        self.ser = None  # Initialize serial attribute to None
+        self.pub = self.create_publisher(String, 'teensy/pps_data', 10)
+        self.timestamp_pub = self.create_publisher(UInt64, 'teensy/trigger_timestamp', 10)
+        self.ser = None
 
         serial_port = find_teensy_port()
         if serial_port is None:
@@ -54,22 +59,70 @@ class TeensySerialPublisher(Node):
 
         self.timer = self.create_timer(0.1, self.publish_data)  # 10 Hz
 
+    def read_packet(self):
+        """Attempt to read and validate a packet"""
+        if self.ser.in_waiting < PACKET_SIZE:
+            return None
+            
+        # Peek at first byte to check for header
+        header_bytes = self.ser.read(2)
+        if len(header_bytes) != 2:
+            return None
+            
+        header = int.from_bytes(header_bytes, byteorder='little')
+        if header != HEADER:
+            # Not a valid packet, put bytes back
+            self.ser.reset_input_buffer()
+            return None
+            
+        # Read rest of packet
+        packet_data = self.ser.read(PACKET_SIZE - 2)
+        if len(packet_data) != PACKET_SIZE - 2:
+            return None
+            
+        timestamp = int.from_bytes(packet_data[0:4], byteorder='little')
+        footer = int.from_bytes(packet_data[4:6], byteorder='little')
+        
+        if footer != FOOTER:
+            return None
+            
+        return timestamp
+    
     def publish_data(self):
-        """
-        Reads data from the Teensy serial port and publishes it to the '/teensy_data' topic.
-        """
-        if self.ser and self.ser.in_waiting > 0:
-            try:
-                data = self.ser.readline().decode('utf-8').rstrip()
-                if data:
-                    msg = String()
-                    msg.data = data
-                    self.pub.publish(msg)
-                    # self.get_logger().info(f"Published data: {data}")
-            except serial.SerialException as e:
-                self.get_logger().error(f"Serial read error: {e}")
-            except UnicodeDecodeError as e:
-                self.get_logger().error(f"Unicode decode error: {e}")
+        """Reads and publishes both binary packets and debug messages"""
+        if not self.ser or self.ser.in_waiting == 0:
+            return
+
+        try:
+            # First try to read a complete packet
+            timestamp = self.read_packet()
+            if timestamp is not None:
+                msg = UInt64()
+                msg.data = timestamp
+                self.timestamp_pub.publish(msg)
+                self.get_logger().debug(f"Published timestamp: {timestamp}")
+
+            # Read any remaining text data (debug messages)
+            while self.ser.in_waiting > 0:
+                try:
+                    # Try to read a line of text
+                    line = self.ser.readline()
+                    if line:
+                        try:
+                            # Try to decode as text
+                            text = line.decode('utf-8').rstrip()
+                            if text:
+                                msg = String()
+                                msg.data = text
+                                self.pub.publish(msg)
+                        except UnicodeDecodeError:
+                            # Not valid text, might be partial binary packet
+                            pass
+                except serial.SerialException as e:
+                    self.get_logger().error(f"Serial read error: {e}")
+                    break
+        except serial.SerialException as e:
+            self.get_logger().error(f"Serial read error: {e}")
 
     def destroy_node_safe(self):
         """

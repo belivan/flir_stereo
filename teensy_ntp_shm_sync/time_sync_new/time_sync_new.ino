@@ -10,6 +10,7 @@ const uint8_t OUT_PIN2 = 3;
 volatile bool ppsReceived = false;
 volatile bool state = LOW;              // To keep track of the trigger pins state (HIGH or LOW)
 volatile unsigned long ppsMicros = 0;   // To keep track of the PPS signal time
+unsigned long currentMicros = 0;
 long drift = 0;
 const unsigned long PPS_INTERVAL_US = 1000000;  // 1 second in microseconds
 float clockFactor = 1.0;  // Clock factor to adjust the drift
@@ -31,6 +32,11 @@ volatile time_t synchronizedTime = 0;
 const int MAX_TRIGGERS_PER_SECOND = 30;
 volatile int triggerCount = 0;
 
+const unsigned short HEADER = 0x55AA;
+const unsigned short FOOTER = 0x66BB;
+const size_t PACKET_SIZE = sizeof(unsigned short) + sizeof(unsigned long) + sizeof(unsigned short);
+char* packet;
+
 // Function to toggle the output pins
 void togglePin() {
   // Check if we are within the 10 triggers limit
@@ -40,6 +46,10 @@ void togglePin() {
     digitalWrite(OUT_PIN2, state);
     state = !state;
 
+    if (state == HIGH) {
+      sendTimestampPacket(currentMicros);
+    }
+    
     // Increment the trigger count
     triggerCount++;
   } else {
@@ -63,7 +73,7 @@ time_t getPPS() {
 // Interrupt function for PPS signal
 void ppsInterrupt() {
   noInterrupts();
-  unsigned long currentMicros = micros();
+  currentMicros = micros();
   if (currentMicros - ppsMicros > DEBOUNCE_TIME_US) {
     // Stop the timer
     timer.end();
@@ -119,6 +129,7 @@ void setup() {
   attachInterrupt(digitalPinToInterrupt(PPS_PIN), ppsInterrupt, RISING);
 
   // Initialize the system time synchronization with PPS
+  packet = (char*)malloc(PACKET_SIZE);
   Serial.begin(115200);
 
   synchronizedTime = 0;
@@ -133,6 +144,16 @@ void setup() {
   } else {
     Serial.println("Time set successfully.");
   }
+}
+
+void sendTimestampPacket(unsigned long timestamp) {
+    memcpy(&packet[0], &HEADER, sizeof(unsigned short));
+    memcpy(&packet[sizeof(unsigned short)], &timestamp, sizeof(unsigned long));
+    memcpy(&packet[sizeof(unsigned short) + sizeof(unsigned long)], &FOOTER, sizeof(unsigned short));
+    
+    for(unsigned int i = 0; i < PACKET_SIZE; i++) {
+        Serial.write(packet[i]);
+    }
 }
 
 // Main loop
@@ -163,7 +184,9 @@ void loop() {
     // print hz
     Serial.print("Hz: ");
     Serial.println(triggerCount);
+  }
 
-
+  if (Serial.available() > 0) {
+    Serial.read(); // Clear any incoming data
   }
 }

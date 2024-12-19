@@ -7,6 +7,7 @@
 #include <cstdlib>
 #include <chrono>
 #include <arpa/inet.h> 
+#include <chrono>
 
 // V4L2 includes
 #include <linux/videodev2.h>
@@ -188,7 +189,27 @@ void FlirRos::initializeDevice() {
         LOG_ERROR("Failed to enable telemetry. Error code: %d", result);
         throw std::runtime_error("Telemetry enable failed");
     }
-    LOG_INFO("Telemetry enabled successfully");
+    // result = telemetrySetLocation(FLR_TELEMETRY_LOC_END);
+    // if (result != R_SUCCESS) {
+    //     LOG_ERROR("Failed to set telemetry location. Error code: %d", result);
+    //     throw std::runtime_error("Failed to set telemetry location");
+    // }
+    
+    FLR_TELEMETRY_LOC_E location;
+    result = telemetryGetLocation(&location);
+    if (result != R_SUCCESS) {
+        LOG_ERROR("Failed to get telemetry location. Error code: %d", result);
+        throw std::runtime_error("Failed to get telemetry location");
+    }
+    LOG_INFO("Telemetry location set to %d", location);
+    
+    FLR_ENABLE_E state;
+    result = telemetryGetState(&state);
+    if (result != R_SUCCESS) {
+        LOG_ERROR("Failed to set telemetry location. Error code: %d", result);
+        throw std::runtime_error("Telemetry enable failed");
+    }
+    LOG_INFO("Telemetry state set to %d", state);
 
     // Set format and request buffers
     if (!setFormat(device_.fd, config_.raw)) {
@@ -230,6 +251,9 @@ void FlirRos::streamingLoop() {
     bufferinfo.memory = V4L2_MEMORY_MMAP;
     bufferinfo.index = 0;
 
+    // Initialize time tracking for FFC
+    auto last_ffc_time = std::chrono::steady_clock::now();
+
     while (stream_active_.load()) {
         if (ioctl(device_.fd, VIDIOC_QBUF, &bufferinfo) < 0) {
             LOG_ERROR("Failed to queue buffer");
@@ -249,6 +273,19 @@ void FlirRos::streamingLoop() {
             publishFrame(bufferinfo.bytesused, frame_time);
             publishTransforms(frame_time);
             frame_count_ = 0;
+        }
+
+        // Check if 3 minutes have passed since last FFC
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::minutes>(now - last_ffc_time);
+        if (elapsed.count() >= 3) {
+            // Perform FFC
+            LOG_INFO("Performing FFC after 3 minutes");
+            auto result = bosonRunFFC();
+            if (result != R_SUCCESS) {
+                LOG_ERROR("Failed to run FFC. Error code: %d", result);
+            }
+            last_ffc_time = now;
         }
     }
 }
@@ -332,30 +369,48 @@ void FlirRos::getFrameTime(rclcpp::Time& frame_time) {
 }
 
 void FlirRos::extractTimestamp(void* buffer, size_t buffer_size, rclcpp::Time& frame_time) {
-    constexpr size_t TIMESTAMP_OFFSET = 280;  // Byte offset for the timestamp
-    constexpr size_t TIMESTAMP_SIZE = 4;      // Size of the timestamp in bytes
+    constexpr size_t TIMESTAMP_OFFSET = 280;
+    constexpr size_t TIMESTAMP_SIZE = 4;
+    constexpr size_t MINIMUM_BUFFER_SIZE = TIMESTAMP_OFFSET + TIMESTAMP_SIZE;
 
-    if (buffer_size < TIMESTAMP_OFFSET + TIMESTAMP_SIZE) {
-        LOG_ERROR("Buffer size too small for telemetry extraction");
+    // More thorough buffer validation
+    if (!buffer || buffer_size < MINIMUM_BUFFER_SIZE) {
+        LOG_ERROR("Invalid buffer (size: %zu, required: %zu)", buffer_size, MINIMUM_BUFFER_SIZE);
         return;
     }
 
-    // Safely extract 4 bytes starting at offset 280
+    // Cast buffer to uint8_t* for byte-level access
+    const uint8_t* raw_buffer = static_cast<const uint8_t*>(buffer);
     uint32_t timestamp_msec = 0;
-    uint8_t* buffer_ptr = static_cast<uint8_t*>(buffer) + TIMESTAMP_OFFSET;
-    std::memcpy(&timestamp_msec, buffer_ptr, TIMESTAMP_SIZE);
 
-    // Convert from big-endian to host byte order
-    timestamp_msec = ntohl(timestamp_msec);
+    // Read 4 bytes in proper order (assuming little-endian)
+    timestamp_msec = static_cast<uint32_t>(raw_buffer[TIMESTAMP_OFFSET]) |
+                    (static_cast<uint32_t>(raw_buffer[TIMESTAMP_OFFSET + 1]) << 8) |
+                    (static_cast<uint32_t>(raw_buffer[TIMESTAMP_OFFSET + 2]) << 16) |
+                    (static_cast<uint32_t>(raw_buffer[TIMESTAMP_OFFSET + 3]) << 24);
 
-    // Convert and publish the timestamp
+    // Publish
     std_msgs::msg::UInt32 timestamp_msg;
     timestamp_msg.data = timestamp_msec;
     publisher_.timestamp_pub->publish(timestamp_msg);
 
-    // Convert milliseconds to ROS time
-    // frame_time = rclcpp::Time(timestamp_msec * 1e6);  // Convert to nanoseconds
-    // LOG_INFO("Extracted Telemetry Timestamp: %u ms", timestamp_msec);
+    //float camera_timestamp = 0.0f;
+    // Call bosonGetTimeStamp with desired timestamp type
+    //FLR_RESULT result = bosonGetTimeStamp(FLR_BOSON_TIMESTAMPTYPE_END, &camera_timestamp);
+    /*
+    if(result != R_SUCCESS) {
+        LOG_ERROR("Failed to extract timestamp. Error code: %d", result);
+        return;
+    }
+    */
+    /*
+    enum e_FLR_BOSON_TIMESTAMPTYPE_E {
+    FLR_BOSON_UARTINIT = (int32_t) 0,
+    FLR_BOSON_PIXELCLOCKINIT = (int32_t) 1,
+    FLR_BOSON_AUTHEVENT = (int32_t) 2,
+    FLR_BOSON_FIRSTVALIDIMAGE = (int32_t) 3,
+    FLR_BOSON_TIMESTAMPTYPE_END = (int32_t) 4,
+    };*/
 }
 
 void FlirRos::publishFrame(uint32_t bytes_used, const rclcpp::Time& time) {

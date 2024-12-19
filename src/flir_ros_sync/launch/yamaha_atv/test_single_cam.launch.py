@@ -48,15 +48,15 @@ def generate_launch_description():
     )
 
     # Optional: Trigger FFC node
-    ffc_trigger_node = Node(
-        package="flir_ros_sync",
-        executable="trigger_ffc.py",
-        name="flir_ffc_trigger",
-        output="screen",
-        parameters=[
-            {"serial_list": [["flir_boson_serial_", flir_id]]}
-        ]
-    )
+    # ffc_trigger_node = Node(
+    #     package="flir_ros_sync",
+    #     executable="trigger_ffc.py",
+    #     name="flir_ffc_trigger",
+    #     output="screen",
+    #     parameters=[
+    #         {"serial_list": [["flir_boson_serial_", flir_id]]}
+    #     ]
+    # )
 
     # # Optional: Teensy Status publisher
     # teensy_serial_publisher = Node(
@@ -72,6 +72,6 @@ def generate_launch_description():
         declare_flir_id_arg,
         camera_launch,
         set_sync_mode_node,
-        ffc_trigger_node,
+        # ffc_trigger_node,
         # teensy_serial_publisher
     ])

@@ -1,154 +1,86 @@
-#include <IntervalTimer.h>
-#include <TimeLib.h>
+/*
+* Copyright (c) 2016 Carnegie Mellon University, Author <shichaoy@andrew.cmu.edu>
+*
+* REVIEW AND EVALUATION LICENSE ONLY --- NON-COMMERCIAL RESEARCH USE ONLY
+*
+* Provided Sponsor has fulfilled (and continues to fulfill) any and all payment obligations to Carnegie Mellon as 
+* contemplated by this Agreement, Carnegie Mellon hereby grants to Sponsor a non-exclusive, non-transferable, 
+* royalty-free, perpetual license for any and all Carnegie Mellon Intellectual Property for the Sponsor's 
+* internal demonstration and internal, non-commercial research use ("Review and Evaluation License").  Pursuant to 
+* such Review and Evaluation License, Sponsor may copy and distribute the Deliverables to individuals internally 
+* within its own organization.  Sponsor may also modify the Deliverables, provided that Sponsor may only use such 
+* modifications within the scope of this Review and Evaluation License and hereby assigns to Carnegie Mellon any 
+* and all rights to such modifications.  Unless source code is delivered to Sponsor, Sponsor agrees that it shall 
+* not (and will not allow others to) decompile or reverse engineer any Deliverables.  Except for the rights 
+* granted above, all other rights in the Deliverables remain with Carnegie Mellon.  
+*
+*
+* If Sponsor would like additional rights to the Deliverables (including but not limited to the right to use the
+* Deliverables for commercial marketing, production, redistribution, sale, rent, lease, sublicensing assignment, 
+* publication, or dissemination) it must request to negotiate a commercial license as described in the agreement.
+*
+*/
+
+const int LED_pin = 13;         // LED output,  for testing
+
+
+unsigned int time_since_boot_in_tenths_of_seconds = 0;
+unsigned short header = 0x55aa;
+unsigned short footer = 0x66bb;
+char* packet;
+unsigned int packet_size = sizeof(unsigned short) + sizeof(unsigned int) + sizeof(unsigned short);
+volatile unsigned short pulse_count = 0;
 
 IntervalTimer timer;
 
-const uint8_t PPS_PIN = 1;      // Pin where the PPS signal is connected
-const uint8_t OUT_PIN1 = 2;  // Pins for camera trigger outputs
-const uint8_t OUT_PIN2 = 3;
-
-volatile bool ppsReceived = false;
-volatile bool state = LOW;  // To keep track of the trigger pins state (HIGH or LOW)
-volatile unsigned long ppsMicros = 0;  // To keep track of the PPS signal time
-long drift = 0;
-const unsigned long PPS_INTERVAL_US = 1000000;  // 1 second in microseconds
-float clockFactor = 1.0; // Clock factor to adjust the drift
-const unsigned long DEBOUNCE_TIME_US = 100; // 100 microseconds debounce time
-
-// PID controller parameters
-float Kp = 0.1;
-float Ki = 0.01;
-float Kd = 0.01;
-float integral = 0;
-float lastError = 0;
-
-// Software clock variables
-unsigned long softwareMicros = 0;
-unsigned long lastSoftwareMicros = 0;
-volatile time_t synchronizedTime = 0;
-
-// Function to toggle the output pins
-void togglePin() {
-// The idea is to toggle the output pins every half period,
-// i.e., if the period is 16.67ms (60Hz), the output pins will be toggled every 8.33ms
-// if 10 Hz is desired, the period will be 100ms, and the output pins will be toggled every 50ms
-  digitalWrite(OUT_PIN1, state);
-  digitalWrite(OUT_PIN2, state);
-  state = !state;
-}
-
-time_t getPPS() {
-  noInterrupts();
-  time_t currentSyncTime = synchronizedTime;
-  interrupts();
-  return currentSyncTime;
-}
-
-// Interrupt function for PPS signal
-void ppsInterrupt() {
-  unsigned long currentMicros = micros();
-  if (currentMicros - ppsMicros > DEBOUNCE_TIME_US) {
-    // Stop the timer
-    timer.end();
-
-    // Calculate interval since last PPS
-    unsigned long interval = currentMicros - ppsMicros;
-    ppsMicros = currentMicros;
-
-    // Calculate drift (difference from expected interval)
-    long drift = (long)interval - (long)PPS_INTERVAL_US;
-
-    // PID Controller for Drift Compensation
-    float error = drift;                  // Current error
-    integral += error;                    // Accumulate integral
-    float derivative = error - lastError; // Calculate derivative
-    float adjustment = (Kp * error) + (Ki * integral) + (Kd * derivative);
-    lastError = error;
-
-    // Adjust clockFactor based on PID output
-    clockFactor += adjustment * 1e-6; // Microseconds to small factor
-
-    // Clamp clockFactor to prevent excessive adjustments, see if needed
-    clockFactor = constrain(clockFactor, 0.999, 1.001);
-
-    // Update the synchronized time
-    // Increment by one second, adjusted by clockFactor
-    softwareMicros += (unsigned long)(PPS_INTERVAL_US * clockFactor);
-    synchronizedTime = softwareMicros / 1000000; // Convert to seconds
-
-    ppsReceived = true;
-
-    // Reset the state to LOW on PPS, check if this causes any issues!!!
-    if (state == HIGH) {
-      state = LOW;
-    }
-
-    // Restart the timer
-    timer.begin(togglePin, 8333*6); // Currently set to 10Hz
-  }
-}
-
-// Setup function
+// put your setup code here, to run once:
 void setup() {
-  // Initialize pins
-  pinMode(OUT_PIN1, OUTPUT);
-  pinMode(OUT_PIN2, OUTPUT);
-  pinMode(PPS_PIN, INPUT);
+  pinMode(LED_pin, OUTPUT);
+  digitalWrite(LED_pin, OUTPUT);
 
-  // Attach the PPS interrupt
-  attachInterrupt(digitalPinToInterrupt(PPS_PIN), ppsInterrupt, RISING);
+  packet = (char*)malloc(packet_size);
 
-  // Initialize the system time synchronization with PPS
-  // setSyncProvider(ppsSync);
-  // setSyncInterval(1);  // Sync every second
+  Serial.begin(9600);    // for usb serial, for testing. can directly connect to PC
 
-  Serial.begin(115200);
-
-  synchronizedTime = 0;
-  softwareMicros = 0;
-
-  setSyncProvider(getPPS);
-  setSyncInterval(1);
-
-  // Check if TimeLib synchronization is successful
-  if (timeStatus() != timeSet) {
-    Serial.println("Time not set!");
-  } else {
-    Serial.println("Time set successfully.");
-  }
+  timer.begin(pulse, 100000); // 1/10th of a second
 }
 
-// Main loop
+
+void pulse(){
+  // turn the LED on for 1 second at the beginning of each 10 second period
+  if(pulse_count == 0)
+    digitalWrite(LED_pin, HIGH);
+  else if(pulse_count == 10)
+   digitalWrite(LED_pin, LOW);
+
+  // build the time packet
+  memcpy(&packet[0], &header, sizeof(unsigned short));
+  memcpy(&packet[sizeof(unsigned short)], &time_since_boot_in_tenths_of_seconds, sizeof(unsigned int));
+  memcpy(&packet[sizeof(unsigned short) + sizeof(unsigned int)], &footer, sizeof(unsigned short));
+  /*
+  packet[0] = reinterpret_cast<char*>(&header)[0];
+  packet[1] = reinterpret_cast<char*>(&header)[1];
+  packet[2] = reinterpret_cast<char*>(&time_since_boot_in_tenths_of_seconds)[0];
+  packet[3] = reinterpret_cast<char*>(&time_since_boot_in_tenths_of_seconds)[1];
+  packet[4] = 0x0d;//reinterpret_cast<char*>(&time_since_boot_in_tenths_of_seconds)[2];
+  packet[5] = 0x0a;//reinterpret_cast<char*>(&time_since_boot_in_tenths_of_seconds)[3];
+  packet[6] = reinterpret_cast<char*>(&footer)[0];
+  packet[7] = reinterpret_cast<char*>(&footer)[1];
+  */
+
+  // send the packet over USB
+  if(Serial)
+    for(unsigned int i = 0; i < packet_size; i++)
+      Serial.write(packet[i]);
+
+  // update counters
+  time_since_boot_in_tenths_of_seconds++;
+  pulse_count++;
+  if(pulse_count == 100)
+    pulse_count = 0;
+}
+
 void loop() {
-  if(ppsReceived) {
-    ppsReceived = false;
-    Serial.print("PPS Received ");
-    Serial.print("| Synchronized Time: ");
-    Serial.print(synchronizedTime);
-    Serial.print(" | Clock Factor: ");
-    Serial.println(clockFactor, 9);
-  }
   
-  static time_t lastPrint = 0;
-  time_t currentTime = now();
-  
-  if (currentTime != lastPrint) {
-    Serial.print("Current Time: ");
-    Serial.print(hour());
-    Serial.print(":");
-    Serial.print(minute());
-    Serial.print(":");
-    Serial.println(second());
-    lastPrint = currentTime;
-  }
 }
 
-// Not used
-// void smartDelay(unsigned long ms) {
-//   unsigned long start = millis();
-//   do {
-//     while (Serial2.available()) {
-//       gps.encode(Serial2.read());  // Feed GPS data to the TinyGPSPlus object
-//     }
-//   } while (millis() - start < ms);
-// }
