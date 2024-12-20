@@ -287,7 +287,7 @@ void FlirRos::streamingLoop() {
         frame_count_++;
         if (frame_count_ % config_.send_every_n == 0) {
             rclcpp::Time frame_time;
-            extractTimestamp(device_.buffer, bufferinfo.bytesused, frame_time);
+            // extractTimestamp(device_.buffer, bufferinfo.bytesused, frame_time);
             getFrameTime(frame_time);
             publishFrame(bufferinfo.bytesused, frame_time);
             publishTransforms(frame_time);
@@ -314,7 +314,7 @@ bool FlirRos::setFormat(int fd, bool raw) {
     std::memset(&format, 0, sizeof(format));
     format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     format.fmt.pix.width = config_.width;
-    format.fmt.pix.height = config_.height + 1; // +1 for telemetry
+    format.fmt.pix.height = config_.height;
     format.fmt.pix.pixelformat = raw ? V4L2_PIX_FMT_Y16 : V4L2_PIX_FMT_YUV420;
     format.fmt.pix.sizeimage = ALIGNED_SIZE;
 
@@ -322,6 +322,25 @@ bool FlirRos::setFormat(int fd, bool raw) {
         LOG_ERROR("Failed to set format with size %zu", ALIGNED_SIZE);
         return false;
     }
+    
+    // Verify the format was set correctly
+    // struct v4l2_format verify_format;
+    // std::memset(&verify_format, 0, sizeof(verify_format));
+    // verify_format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
+
+    // if (ioctl(fd, VIDIOC_G_FMT, &verify_format) < 0) {
+    //     LOG_ERROR("Failed to get format after setting it");
+    //     return false;
+    // }
+
+    // // Check if height was set correctly
+    // if (verify_format.fmt.pix.height != config_.height + 1) {
+    //     LOG_ERROR("Driver did not accept increased height for telemetry. Requested: %d, Got: %d",
+    //               config_.height + 1, verify_format.fmt.pix.height);
+    //     return false;
+    // }
+
+
     return true;
 }
 
@@ -349,9 +368,9 @@ bool FlirRos::requestBuffers(int fd) {
     }
 
     // Verify buffer size is sufficient
-    if (query_buffer.length < RAW_BUFFER_SIZE) {
+    if (query_buffer.length < IMAGE_SIZE) {
         LOG_ERROR("Buffer size too small: got %d bytes, need %zu bytes", 
-                 query_buffer.length, RAW_BUFFER_SIZE);
+                 query_buffer.length, IMAGE_SIZE);
         return false;
     }
 
@@ -461,7 +480,7 @@ void FlirRos::publishFrame(uint32_t bytes_used, const rclcpp::Time& time) {
         img->step = config_.width * 3;
         img->data.resize(config_.width * config_.height * 3);
 
-        cv::Mat yuv_img(config_.height + 1, config_.width, CV_8UC1, device_.buffer);
+        cv::Mat yuv_img(config_.height, config_.width, CV_8UC1, device_.buffer);
         cv::Mat rgb_img(config_.height, config_.width, CV_8UC3, img->data.data());
         cv::cvtColor(yuv_img, rgb_img, cv::COLOR_YUV2RGB_I420);
     }
