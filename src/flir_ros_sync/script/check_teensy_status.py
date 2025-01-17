@@ -94,7 +94,7 @@ class TeensySerialPublisher(Node):
                 msg = UInt64()
                 msg.data = timestamp
                 self.timestamp_pub.publish(msg)
-                self.get_logger().info(f"Published timestamp: {timestamp}")
+                # self.get_logger().info(f"Published timestamp: {timestamp}")
         except serial.SerialException as e:
             self.get_logger().error(f"Serial read error: {e}")
 
