@@ -22,6 +22,7 @@
 
 namespace flir_ros_sync {
 
+// buffer and telemetry params
 size_t IMAGE_SIZE;
 size_t TELEMETRY_SIZE;
 size_t RAW_BUFFER_SIZE;
@@ -440,15 +441,15 @@ void FlirRos::extractTimestamp(void* buffer, size_t buffer_size, rclcpp::Time& f
     timestamp_msg.data = telemetry_timestamp;
     publisher_.timestamp_pub->publish(timestamp_msg);
 
-    //float camera_timestamp = 0.0f;
-    // Call bosonGetTimeStamp with desired timestamp type
-    //FLR_RESULT result = bosonGetTimeStamp(FLR_BOSON_TIMESTAMPTYPE_END, &camera_timestamp);
-    /*
-    if(result != R_SUCCESS) {
-        LOG_ERROR("Failed to extract timestamp. Error code: %d", result);
-        return;
-    }
-    */
+    // float camera_timestamp = 0;
+    // // Call bosonGetTimeStamp with desired timestamp type
+    // FLR_RESULT result = bosonGetTimeStamp(FLR_BOSON_UARTINIT, &camera_timestamp);
+    // if(result != R_SUCCESS) {
+    //     LOG_ERROR("Failed to extract timestamp. Error code: %d", result);
+    //     return;
+    // }
+
+    // LOG_INFO("Camera timestamp: %f", camera_timestamp);
     /*
     enum e_FLR_BOSON_TIMESTAMPTYPE_E {
     FLR_BOSON_UARTINIT = (int32_t) 0,
@@ -457,6 +458,8 @@ void FlirRos::extractTimestamp(void* buffer, size_t buffer_size, rclcpp::Time& f
     FLR_BOSON_FIRSTVALIDIMAGE = (int32_t) 3,
     FLR_BOSON_TIMESTAMPTYPE_END = (int32_t) 4,
     };*/
+
+    
 }
 
 void FlirRos::publishFrame(uint32_t bytes_used, const rclcpp::Time& time) {

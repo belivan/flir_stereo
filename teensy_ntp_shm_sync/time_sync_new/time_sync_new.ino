@@ -3,18 +3,18 @@
 
 IntervalTimer timer;
 
-const uint8_t PPS_PIN = 1;      // Pin where the PPS signal is connected
-const uint8_t OUT_PIN1 = 2;     // Pins for camera trigger outputs
+const uint8_t PPS_PIN = 1;      
+const uint8_t OUT_PIN1 = 2;     
 const uint8_t OUT_PIN2 = 3;
 
 volatile bool ppsReceived = false;
-volatile bool state = LOW;              // To keep track of the trigger pins state (HIGH or LOW)
-volatile unsigned long ppsMicros = 0;   // To keep track of the PPS signal time
+volatile bool state = LOW;              
+volatile unsigned long ppsMicros = 0;   
 unsigned long currentMicros = 0;
 long drift = 0;
-const unsigned long PPS_INTERVAL_US = 1000000;  // 1 second in microseconds
-float clockFactor = 1.0;  // Clock factor to adjust the drift
-const unsigned long DEBOUNCE_TIME_US = 950000; // 100 microseconds debounce time
+const unsigned long PPS_INTERVAL_US = 1000000;  
+float clockFactor = 1.0;  
+const unsigned long DEBOUNCE_TIME_US = 950000; 
 
 // PID controller parameters
 float Kp = 0.1;
@@ -23,43 +23,27 @@ float Kd = 0.01;
 float integral = 0;
 float lastError = 0;
 
-// Software clock variables
 unsigned long softwareMicros = 0;
 unsigned long lastSoftwareMicros = 0;
 volatile time_t synchronizedTime = 0;
 
-// Variables to limit triggers to 10 per second
-const int MAX_TRIGGERS_PER_SECOND = 30;
-volatile int triggerCount = 0;
+// We won't limit triggers now since we want continuous 10 Hz
+// const int MAX_TRIGGERS_PER_SECOND = 10;
+// volatile int triggerCount = 0;
 
 const unsigned short HEADER = 0x55AA;
 const unsigned short FOOTER = 0x66BB;
-const size_t PACKET_SIZE = sizeof(unsigned short) + sizeof(unsigned long) + sizeof(unsigned short);
-char* packet;
 
-// Function to toggle the output pins
 void togglePin() {
-  // Check if we are within the 10 triggers limit
-  if (triggerCount < MAX_TRIGGERS_PER_SECOND) {
-    // Toggle the output pins
-    digitalWrite(OUT_PIN1, state);
-    digitalWrite(OUT_PIN2, state);
-    state = !state;
+  // Just toggle every time (10 Hz continuously)
+  digitalWrite(OUT_PIN1, state);
+  digitalWrite(OUT_PIN2, state);
+  state = !state;
 
-    if (state == HIGH) {
-      sendTimestampPacket(currentMicros);
-    }
-    
-    // Increment the trigger count
-    triggerCount++;
-  } else {
-    // Keep the state LOW after 10 triggers
-    if (state == HIGH) {
-      Serial.println("Reached 10Hz");
-      state = LOW;
-      digitalWrite(OUT_PIN1, LOW);
-      digitalWrite(OUT_PIN2, LOW);
-    }
+  if (state == HIGH) {
+    // Send timestamp packet every toggle or just every HIGH toggle
+    currentMicros = micros();
+    sendTimestampPacket(currentMicros);
   }
 }
 
@@ -70,66 +54,58 @@ time_t getPPS() {
   return currentSyncTime;
 }
 
-// Interrupt function for PPS signal
 void ppsInterrupt() {
   noInterrupts();
   currentMicros = micros();
   if (currentMicros - ppsMicros > DEBOUNCE_TIME_US) {
-    // Stop the timer
-    timer.end();
 
-    // Reset the trigger count for the new second
-    triggerCount = 0;
+    // No longer stop the timer. We want continuous output.
+    // timer.end();
+    // triggerCount = 0; // No trigger counting needed now
 
-    // Calculate interval since last PPS
     unsigned long interval = currentMicros - ppsMicros;
     ppsMicros = currentMicros;
 
-    // Calculate drift (difference from expected interval)
+    // Calculate drift
     drift = (long)interval - (long)PPS_INTERVAL_US;
 
     // PID Controller for Drift Compensation
-    float error = drift;                  // Current error
-    integral += error;                    // Accumulate integral
-    float derivative = error - lastError; // Calculate derivative
+    float error = drift;
+    integral += error;
+    float derivative = error - lastError;
     float adjustment = (Kp * error) + (Ki * integral) + (Kd * derivative);
     lastError = error;
 
-    // Adjust clockFactor based on PID output
-    clockFactor += adjustment * 1e-6; // Microseconds to small factor
-
-    // Clamp clockFactor to prevent excessive adjustments
+    // Adjust clockFactor
+    clockFactor += adjustment * 1e-6;
     clockFactor = constrain(clockFactor, 0.999, 1.001);
 
-    // Update the synchronized time
+    // Update synchronized time
     softwareMicros += (unsigned long)(PPS_INTERVAL_US * clockFactor);
-    synchronizedTime = softwareMicros / 1000000; // Convert to seconds
+    synchronizedTime = softwareMicros / 1000000;
 
     ppsReceived = true;
 
-    // Reset the state to LOW on PPS
+    // Reset the state to LOW on PPS if desired
     if (state == HIGH) {
       state = LOW;
+      digitalWrite(OUT_PIN1, LOW);
+      digitalWrite(OUT_PIN2, LOW);
     }
 
-    // Restart the timer to trigger the cameras, limiting to 10 triggers per second
-    timer.begin(togglePin, 100000 / MAX_TRIGGERS_PER_SECOND); // 100ms / 10 triggers = 10Hz
+    // Do NOT restart the timer here. Just let it run continuously.
+    // timer.begin(togglePin, 100000 / MAX_TRIGGERS_PER_SECOND); 
   }
   interrupts();
 }
 
-// Setup function
 void setup() {
-  // Initialize pins
   pinMode(OUT_PIN1, OUTPUT);
   pinMode(OUT_PIN2, OUTPUT);
   pinMode(PPS_PIN, INPUT);
 
-  // Attach the PPS interrupt
   attachInterrupt(digitalPinToInterrupt(PPS_PIN), ppsInterrupt, RISING);
 
-  // Initialize the system time synchronization with PPS
-  packet = (char*)malloc(PACKET_SIZE);
   Serial.begin(115200);
 
   synchronizedTime = 0;
@@ -138,55 +114,27 @@ void setup() {
   setSyncProvider(getPPS);
   setSyncInterval(1);
 
-  // Check if TimeLib synchronization is successful
-  if (timeStatus() != timeSet) {
-    Serial.println("Time not set!");
-  } else {
-    Serial.println("Time set successfully.");
-  }
+  // Start the timer once at 10Hz (100000 microseconds = 100 ms)
+  timer.begin(togglePin, 100000/2);
 }
 
 void sendTimestampPacket(unsigned long timestamp) {
-    memcpy(&packet[0], &HEADER, sizeof(unsigned short));
-    memcpy(&packet[sizeof(unsigned short)], &timestamp, sizeof(unsigned long));
-    memcpy(&packet[sizeof(unsigned short) + sizeof(unsigned long)], &FOOTER, sizeof(unsigned short));
-    
-    for(unsigned int i = 0; i < PACKET_SIZE; i++) {
-        Serial.write(packet[i]);
-    }
+  // Write header
+  Serial.write((uint8_t)(HEADER & 0xFF));
+  Serial.write((uint8_t)(HEADER >> 8));
+  
+  // Write timestamp (little-endian)
+  Serial.write((uint8_t)(timestamp & 0xFF));
+  Serial.write((uint8_t)((timestamp >> 8) & 0xFF));
+  Serial.write((uint8_t)((timestamp >> 16) & 0xFF));
+  Serial.write((uint8_t)((timestamp >> 24) & 0xFF));
+  
+  // Write footer
+  Serial.write((uint8_t)(FOOTER & 0xFF));
+  Serial.write((uint8_t)(FOOTER >> 8));
 }
 
-// Main loop
 void loop() {
-  if(ppsReceived) {
-    ppsReceived = false;
-    Serial.print("PPS Received ");
-    Serial.print("| Synchronized Time: ");
-    Serial.print(synchronizedTime);
-    Serial.print(" | Clock Factor: ");
-    Serial.print(clockFactor, 9);
-    Serial.print(" | Drift: ");
-    Serial.println(drift);
-  }
-  
-  static time_t lastPrint = 0;
-  time_t currentTime = now();
-  
-  if (currentTime != lastPrint) {
-    Serial.print("Time Now: ");
-    Serial.print(hour());
-    Serial.print(":");
-    Serial.print(minute());
-    Serial.print(":");
-    Serial.println(second());
-    lastPrint = currentTime;
-
-    // print hz
-    Serial.print("Hz: ");
-    Serial.println(triggerCount);
-  }
-
-  if (Serial.available() > 0) {
-    Serial.read(); // Clear any incoming data
-  }
+  // No triggerCount logic, no stopping the timer.
+  // Just continuous 10Hz toggling.
 }

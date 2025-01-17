@@ -11,9 +11,8 @@ def generate_launch_description():
     declare_raw_arg = DeclareLaunchArgument("raw", default_value="true", description="Use raw image format")
     declare_left_flir_id_arg = DeclareLaunchArgument("left_flir_id", default_value="322011", description="Left FLIR camera ID")
     declare_right_flir_id_arg = DeclareLaunchArgument("right_flir_id", default_value="322008", description="Right FLIR camera ID")
-    declare_frame_rate_arg = DeclareLaunchArgument("frame_rate", default_value="10", description="Frame rate")
+
     # Get the launch configurations
-    frame_rate = LaunchConfiguration("frame_rate")
     raw = LaunchConfiguration("raw")
     left_flir_id = LaunchConfiguration("left_flir_id")
     right_flir_id = LaunchConfiguration("right_flir_id")
@@ -28,7 +27,7 @@ def generate_launch_description():
             'raw': raw,
             'flir_id': left_flir_id,
             'camera_name': 'thermal_left',
-            'frame_rate': frame_rate
+            'frame_rate': '10'
         }.items(),
     )
 
@@ -38,7 +37,7 @@ def generate_launch_description():
             'raw': raw,
             'flir_id': right_flir_id,
             'camera_name': 'thermal_right',
-            'frame_rate': frame_rate
+            'frame_rate': '10'
         }.items(),
     )
 
@@ -59,21 +58,21 @@ def generate_launch_description():
         ]
     )
 
-    # Trigger FFC node
-    ffc_trigger_node = Node(
-        package='flir_ros_sync',
-        executable='trigger_ffc.py',
-        name='flir_ffc_trigger',
-        output='screen',
-        parameters=[
-            {
-                'serial_list': [
-                    ["flir_boson_serial_", left_flir_id],
-                    ["flir_boson_serial_", right_flir_id]
-                ]
-            }
-        ]
-    )
+    # Trigger FFC node, not needed anymore bc flir_ros_sync.cpp now does this
+    # ffc_trigger_node = Node(
+    #     package='flir_ros_sync',
+    #     executable='trigger_ffc.py',
+    #     name='flir_ffc_trigger',
+    #     output='screen',
+    #     parameters=[
+    #         {
+    #             'serial_list': [
+    #                 ["flir_boson_serial_", left_flir_id],
+    #                 ["flir_boson_serial_", right_flir_id]
+    #             ]
+    #         }
+    #     ]
+    # )
 
     # Teensy Status publisher
     teensy_serial_publisher = Node(
@@ -90,6 +89,6 @@ def generate_launch_description():
         left_camera,
         right_camera,
         set_sync_mode_node,
-        ffc_trigger_node,
+        # ffc_trigger_node,
         teensy_serial_publisher
     ])
