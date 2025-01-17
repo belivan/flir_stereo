@@ -29,7 +29,6 @@ size_t RAW_BUFFER_SIZE;
 size_t PAGE_SIZE;
 size_t ALIGNED_SIZE;
 size_t TELEMETRY_OFFSET;
-size_t TIMESTAMP_OFFSET;
 
 FlirRos::FlirRos(const rclcpp::NodeOptions& options)
     : Node("flir_ros_sync", options),
@@ -230,12 +229,14 @@ void FlirRos::initializeDevice() {
     RAW_BUFFER_SIZE = config_.width * config_.total_height * 2;  // Total buffer including telemetry
     PAGE_SIZE = sysconf(_SC_PAGE_SIZE);
     ALIGNED_SIZE = ((RAW_BUFFER_SIZE + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE;
-    TELEMETRY_OFFSET = IMAGE_SIZE;                         // Telemetry starts after image  
-    TIMESTAMP_OFFSET = TELEMETRY_OFFSET + 280;
+    TELEMETRY_OFFSET = IMAGE_SIZE;  // Telemetry starts after image
+
     // Set format and request buffers
+    // The following function responsible for requesting enough buffer to handle the image and telemetry:
     if (!setFormat(device_.fd, config_.raw)) {
         throw std::runtime_error("Failed to set video format");
     }
+    // If successful, the following function will request a buffer of the correct size:
     if (!requestBuffers(device_.fd)) {
         throw std::runtime_error("Failed to request buffers");
     }
