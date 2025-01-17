@@ -428,6 +428,17 @@ void FlirRos::extractTelemetryTimestamp(void* buffer, size_t buffer_size, rclcpp
         return;
     }
 
+    // Check telemetry packing (16 or 8 bit)
+    FLR_TELEMETRY_PACKING_E pack;
+    result = telemetryGetPacking(&pack);
+    if (result != R_SUCCESS) {
+        LOG_ERROR("Failed to get telemetry packing. Error code: %d", result);
+        return;
+    }
+    else {
+        LOG_INFO("Telemetry packing: %d", pack);
+    }
+
     // Access telemetry lines (last two lines of the buffer)
     const uint16_t* telemetry_data = static_cast<uint16_t*>(buffer) + (config_.width * config_.height);
     
