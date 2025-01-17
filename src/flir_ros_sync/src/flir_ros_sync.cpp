@@ -124,7 +124,9 @@ void FlirRos::loadParameters() {
     LOG_INFO("Camera name: %s", config_.camera_name.c_str());
     LOG_INFO("Intrinsic URL: %s", config_.intrinsic_url.c_str());
     LOG_INFO("Width: %d", config_.width);
-    LOG_INFO("Height: %d", config_.height);
+    // LOG_INFO("Height: %d", config_.height);
+    LOG_INFO("Image height: %d (plus 2 telemetry lines, total: %d)", 
+             config_.height, config_.total_height);
     LOG_INFO("Raw: %s", config_.raw ? "true" : "false");
     LOG_INFO("Gain mode: %d", config_.gain_mode);
     LOG_INFO("FFC mode: %d", config_.ffc_mode);
@@ -222,15 +224,14 @@ void FlirRos::initializeDevice() {
         LOG_ERROR("Telemetry state is NOT ENABLED");
     }
 
-    // Initialize size variables
-    IMAGE_SIZE = config_.width * config_.height * 2;        // 16-bit per pixel (Y16)
-    TELEMETRY_SIZE = config_.width * 2;                     // Single telemetry line
-    RAW_BUFFER_SIZE = IMAGE_SIZE + TELEMETRY_SIZE;          // Total buffer size
+    // Initialize size variables with telemetry lines included
+    IMAGE_SIZE = config_.width * config_.height * 2;        // 16-bit per pixel (Y16) for image only
+    TELEMETRY_SIZE = config_.width * 2 * 2;                // Two telemetry lines
+    RAW_BUFFER_SIZE = config_.width * config_.total_height * 2;  // Total buffer including telemetry
     PAGE_SIZE = sysconf(_SC_PAGE_SIZE);
     ALIGNED_SIZE = ((RAW_BUFFER_SIZE + PAGE_SIZE - 1) / PAGE_SIZE) * PAGE_SIZE;
-    TELEMETRY_OFFSET = IMAGE_SIZE;                           // Telemetry starts after image
-    TIMESTAMP_OFFSET = TELEMETRY_OFFSET + 280;   
-
+    TELEMETRY_OFFSET = IMAGE_SIZE;                         // Telemetry starts after image  
+    TIMESTAMP_OFFSET = TELEMETRY_OFFSET + 280;
     // Set format and request buffers
     if (!setFormat(device_.fd, config_.raw)) {
         throw std::runtime_error("Failed to set video format");
@@ -288,7 +289,7 @@ void FlirRos::streamingLoop() {
         frame_count_++;
         if (frame_count_ % config_.send_every_n == 0) {
             rclcpp::Time frame_time;
-            // extractTimestamp(device_.buffer, bufferinfo.bytesused, frame_time);
+            // extractTelemetryTimestamp(device_.buffer, bufferinfo.bytesused, frame_time);
             getFrameTime(frame_time);
             publishFrame(bufferinfo.bytesused, frame_time);
             publishTransforms(frame_time);
@@ -315,7 +316,7 @@ bool FlirRos::setFormat(int fd, bool raw) {
     std::memset(&format, 0, sizeof(format));
     format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
     format.fmt.pix.width = config_.width;
-    format.fmt.pix.height = config_.height;
+    format.fmt.pix.height = config_.total_height;  // Use total height including telemetry
     format.fmt.pix.pixelformat = raw ? V4L2_PIX_FMT_Y16 : V4L2_PIX_FMT_YUV420;
     format.fmt.pix.sizeimage = ALIGNED_SIZE;
 
@@ -323,24 +324,25 @@ bool FlirRos::setFormat(int fd, bool raw) {
         LOG_ERROR("Failed to set format with size %zu", ALIGNED_SIZE);
         return false;
     }
-    
-    // Verify the format was set correctly
-    // struct v4l2_format verify_format;
-    // std::memset(&verify_format, 0, sizeof(verify_format));
-    // verify_format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
-    // if (ioctl(fd, VIDIOC_G_FMT, &verify_format) < 0) {
-    //     LOG_ERROR("Failed to get format after setting it");
-    //     return false;
-    // }
+    // Verify format
+    struct v4l2_format verify_format;
+    std::memset(&verify_format, 0, sizeof(verify_format));
+    verify_format.type = V4L2_BUF_TYPE_VIDEO_CAPTURE;
 
-    // // Check if height was set correctly
-    // if (verify_format.fmt.pix.height != config_.height + 1) {
-    //     LOG_ERROR("Driver did not accept increased height for telemetry. Requested: %d, Got: %d",
-    //               config_.height + 1, verify_format.fmt.pix.height);
-    //     return false;
-    // }
+    if (ioctl(fd, VIDIOC_G_FMT, &verify_format) < 0) {
+        LOG_ERROR("Failed to verify format");
+        return false;
+    }
 
+    if (verify_format.fmt.pix.height != config_.total_height) {
+        LOG_ERROR("Failed to set correct height. Requested: %d, Got: %d",
+                 config_.total_height, verify_format.fmt.pix.height);
+        return false;
+    }
+
+    LOG_INFO("Format set successfully: %dx%d", 
+             verify_format.fmt.pix.width, verify_format.fmt.pix.height);
 
     return true;
 }
@@ -418,29 +420,26 @@ void FlirRos::getFrameTime(rclcpp::Time& frame_time) {
     }
 }
 
-void FlirRos::extractTimestamp(void* buffer, size_t buffer_size, rclcpp::Time& frame_time) {
-    // Ensure buffer is large enough to contain telemetry
+void FlirRos::extractTelemetryTimestamp(void* buffer, size_t buffer_size, rclcpp::Time& frame_time) {
     if (buffer_size < RAW_BUFFER_SIZE) {
-        LOG_ERROR("Buffer size too small for telemetry extraction");
+        LOG_ERROR("Buffer too small for telemetry: %zu < %zu", buffer_size, RAW_BUFFER_SIZE);
         return;
     }
 
-    // Pointer to the telemetry data (last line)
-    uint8_t* telemetry_ptr = static_cast<uint8_t*>(buffer) + IMAGE_SIZE;
-
-    // Example: Extracting timestamp from telemetry (assuming it's at a fixed offset)
-    // Adjust the offset based on actual telemetry data structure
-    uint32_t telemetry_timestamp = 0;
-    telemetry_timestamp = static_cast<uint32_t>(telemetry_ptr[0]) |
-                          (static_cast<uint32_t>(telemetry_ptr[1]) << 8) |
-                          (static_cast<uint32_t>(telemetry_ptr[2]) << 16) |
-                          (static_cast<uint32_t>(telemetry_ptr[3]) << 24);
-
-    // Publish telemetry timestamp
+    // Access telemetry lines (last two lines of the buffer)
+    const uint16_t* telemetry_data = static_cast<uint16_t*>(buffer) + (config_.width * config_.height);
+    
+    // Extract timestamp from telemetry (adjust offset based on SDK documentation)
+    uint32_t timestamp = telemetry_data[140];  // Assuming timestamp is at offset 280 bytes (140 16-bit words)
+    
+    // Publish timestamp
     std_msgs::msg::UInt32 timestamp_msg;
-    timestamp_msg.data = telemetry_timestamp;
+    timestamp_msg.data = timestamp;
     publisher_.timestamp_pub->publish(timestamp_msg);
+    
+    LOG_DEBUG("Extracted telemetry timestamp: %u", timestamp);
 
+    // THE FOLLOWING WAS TRIED AND DOES NOT YIELD ANY USEFUL INFORMATION, Feel free to try yourself
     // float camera_timestamp = 0;
     // // Call bosonGetTimeStamp with desired timestamp type
     // FLR_RESULT result = bosonGetTimeStamp(FLR_BOSON_UARTINIT, &camera_timestamp);
@@ -458,14 +457,12 @@ void FlirRos::extractTimestamp(void* buffer, size_t buffer_size, rclcpp::Time& f
     FLR_BOSON_FIRSTVALIDIMAGE = (int32_t) 3,
     FLR_BOSON_TIMESTAMPTYPE_END = (int32_t) 4,
     };*/
-
-    
 }
 
 void FlirRos::publishFrame(uint32_t bytes_used, const rclcpp::Time& time) {
     auto img = std::make_shared<sensor_msgs::msg::Image>();
     img->width = config_.width;
-    img->height = config_.height;
+    img->height = config_.height;  // Use original height without telemetry
     img->is_bigendian = false;
     img->header.stamp = time;
     img->header.frame_id = publisher_.img_opt_frame_id;
@@ -476,9 +473,16 @@ void FlirRos::publishFrame(uint32_t bytes_used, const rclcpp::Time& time) {
     if (config_.raw) {
         img->encoding = "16UC1";
         img->step = config_.width * 2;
-        img->data.assign(static_cast<uint8_t*>(device_.buffer), static_cast<uint8_t*>(device_.buffer) + IMAGE_SIZE);
+        // Copy only the image data, excluding telemetry lines
+        img->data.assign(
+            static_cast<uint8_t*>(device_.buffer),
+            static_cast<uint8_t*>(device_.buffer) + IMAGE_SIZE
+        );
+
+        // Extract telemetry from the additional lines, done here????
+        // extractTelemetryTimestamp(device_.buffer, bytes_used, time);
     } else {
-        // Convert YUV to RGB using OpenCV
+        // Handle YUV conversion (excluding telemetry lines)
         img->encoding = "rgb8";
         img->step = config_.width * 3;
         img->data.resize(config_.width * config_.height * 3);
@@ -488,7 +492,6 @@ void FlirRos::publishFrame(uint32_t bytes_used, const rclcpp::Time& time) {
         cv::cvtColor(yuv_img, rgb_img, cv::COLOR_YUV2RGB_I420);
     }
 
-    // Publish only if there are subscribers
     object_detection::publish_if_subscribed(publisher_.image_pub, img, cam_info);
 
     // Publish rectified image

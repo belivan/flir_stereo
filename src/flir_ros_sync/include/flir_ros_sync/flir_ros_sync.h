@@ -43,6 +43,7 @@ struct CameraConfig {
     std::string intrinsic_url = "package://flir_ros_sync/data/camera_info/flir_intrinsics.yaml";
     int width = 640;
     int height = 512;
+    int total_height = 514;
     bool raw = true;
     int gain_mode = 2;
     int ffc_mode = 1;
@@ -88,7 +89,7 @@ private:
 
     // Streaming methods
     void streamingLoop();
-    void extractTimestamp(void* buffer, size_t buffer_size, rclcpp::Time& frame_time);
+    void extractTelemetryTimestamp(void* buffer, size_t buffer_size, rclcpp::Time& frame_time);
     void publishFrame(uint32_t bytes_used, const rclcpp::Time& time);
     sensor_msgs::msg::Image::SharedPtr rectify_image(
                             const sensor_msgs::msg::Image::ConstSharedPtr& image_msg,
