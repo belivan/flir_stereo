@@ -82,6 +82,11 @@ public:
     void initialize();
 
 private:
+    // Timestamp variables
+    uint64_t timestamp_init_{0};  // Initial telemetry timestamp
+    uint64_t system_time_init_{0}; // Initial system time
+    bool first_frame_{true};
+
     // Initialization methods
     void loadParameters();
     void initializeDevice();
@@ -98,7 +103,7 @@ private:
     void publishTransform(const rclcpp::Time& time, const geometry_msgs::msg::Vector3& trans,
                           const tf2::Quaternion& q, const std::string& from,
                           const std::string& to);
-    void getFrameTime(rclcpp::Time& frame_time);
+    // void getFrameTime(rclcpp::Time& frame_time);
 
     // Utility methods
     bool setFormat(int fd, bool raw);

@@ -221,6 +221,7 @@ void FlirRos::initializeDevice() {
         LOG_INFO("Telemetry state: ENABLED");
     } else {
         LOG_ERROR("Telemetry state is NOT ENABLED");
+        throw std::runtime_error("Telemetry state is NOT ENABLED");
     }
 
     // Check telemetry packing (16 or 8 bit)
@@ -228,11 +229,13 @@ void FlirRos::initializeDevice() {
     result = telemetryGetPacking(&pack);
     if (result != R_SUCCESS) {
         LOG_ERROR("Failed to get telemetry packing. Error code: %d", result);
+        throw std::runtime_error("Failed to get telemetry packing");
     }
     else {
         LOG_INFO("Telemetry packing: %d", pack);
     }
-
+    
+    // Might want to modify the following if operating in 8-bit mode
     // Initialize size variables with telemetry lines included
     IMAGE_SIZE = config_.width * config_.height * 2;        // 16-bit per pixel (Y16) for image only
     TELEMETRY_SIZE = config_.width * 2 * 2;                // Two telemetry lines
@@ -302,7 +305,7 @@ void FlirRos::streamingLoop() {
             rclcpp::Time frame_time;
             // TELEMETRY EXTRACTION DONE HERE
             extractTelemetryTimestamp(device_.buffer, bufferinfo.bytesused, frame_time);
-            getFrameTime(frame_time);
+            // getFrameTime(frame_time);
             publishFrame(bufferinfo.bytesused, frame_time);
             publishTransforms(frame_time);
             frame_count_ = 0;
@@ -317,6 +320,7 @@ void FlirRos::streamingLoop() {
             auto result = bosonRunFFC();
             if (result != R_SUCCESS) {
                 LOG_ERROR("Failed to run FFC. Error code: %d", result);
+                throw std::runtime_error("Failed to run FFC");
             }
             last_ffc_time = now;
         }
@@ -412,30 +416,30 @@ bool FlirRos::startStreaming(int fd) {
     return true;
 }
 
-void FlirRos::getFrameTime(rclcpp::Time& frame_time) {
-    if (config_.use_ext_sync) {
-        timespec system_time;
-        clock_gettime(CLOCK_REALTIME, &system_time);
+// void FlirRos::getFrameTime(rclcpp::Time& frame_time) {
+//     if (config_.use_ext_sync) {
+//         timespec system_time;
+//         clock_gettime(CLOCK_REALTIME, &system_time);
 
-        uint64_t one_amount_nsec = 1000000000 / config_.frame_rate;  // 1 / frame_rate in ns
-        uint64_t system_nsec = system_time.tv_nsec;
-        uint64_t trigger_nsec = system_nsec - (system_nsec % one_amount_nsec) + static_cast<uint64_t>(config_.timestamp_offset * 1e9);
+//         uint64_t one_amount_nsec = 1000000000 / config_.frame_rate;  // 1 / frame_rate in ns
+//         uint64_t system_nsec = system_time.tv_nsec;
+//         uint64_t trigger_nsec = system_nsec - (system_nsec % one_amount_nsec) + static_cast<uint64_t>(config_.timestamp_offset * 1e9);
 
-        if (trigger_nsec >= 1000000000) {
-            trigger_nsec -= 1000000000;
-            system_time.tv_sec += 1;
-        }
+//         if (trigger_nsec >= 1000000000) {
+//             trigger_nsec -= 1000000000;
+//             system_time.tv_sec += 1;
+//         }
 
-        frame_time = rclcpp::Time(system_time.tv_sec, trigger_nsec);
-    } else {
-        frame_time = this->now();
-    }
-}
+//         frame_time = rclcpp::Time(system_time.tv_sec, trigger_nsec);
+//     } else {
+//         frame_time = this->now();
+//     }
+// }
 
 void FlirRos::extractTelemetryTimestamp(void* buffer, size_t buffer_size, rclcpp::Time& frame_time) {
     if (buffer_size < RAW_BUFFER_SIZE) {
         LOG_ERROR("Buffer too small for telemetry: %zu < %zu", buffer_size, RAW_BUFFER_SIZE);
-        return;
+        // throw std::runtime_error("Buffer too small for telemetry");
     }
 
     // Access telemetry lines (last two lines of the buffer)
@@ -457,20 +461,18 @@ void FlirRos::extractTelemetryTimestamp(void* buffer, size_t buffer_size, rclcpp
     // 3. The next time stamps (T2, T3, ... Tn) are system_time_init + (timestamp - timestamp_init) * 1e6 (convert to ns for ROS2)
 
     if (config_.use_ext_sync) {
-        timespec system_time;
-        clock_gettime(CLOCK_REALTIME, &system_time);
-
-        uint64_t 
-        // uint64_t one_amount_nsec = 1000000000 / config_.frame_rate;  // 1 / frame_rate in ns
-        // uint64_t system_nsec = system_time.tv_nsec;
-        // uint64_t trigger_nsec = system_nsec - (system_nsec % one_amount_nsec) + static_cast<uint64_t>(config_.timestamp_offset * 1e9);
-
-        // if (trigger_nsec >= 1000000000) {
-        //     trigger_nsec -= 1000000000;
-        //     system_time.tv_sec += 1;
-        // }
-
-        // frame_time = rclcpp::Time(system_time.tv_sec, trigger_nsec);
+        if (first_frame_) {
+            timestamp_init_ = timestamp;
+            system_time_init_ = std::chrono::duration_cast<std::chrono::nanoseconds>(
+                std::chrono::system_clock::now().time_since_epoch()).count();
+            first_frame_ = false;
+            frame_time = rclcpp::Time(system_time_init_);
+        } else {
+            // Calculate timestamp offset in nanoseconds
+            uint64_t timestamp_offset_ns = (timestamp - timestamp_init_) * 1000000; // Convert ms to ns
+            uint64_t final_timestamp = system_time_init_ + timestamp_offset_ns;
+            frame_time = rclcpp::Time(final_timestamp);
+        }
     } else {
         frame_time = this->now();
     }
