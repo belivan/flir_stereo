@@ -225,10 +225,9 @@ void FlirRos::initializeDevice() {
 
     // Check telemetry packing (16 or 8 bit)
     FLR_TELEMETRY_PACKING_E pack;
-    auto result = telemetryGetPacking(&pack);
+    result = telemetryGetPacking(&pack);
     if (result != R_SUCCESS) {
         LOG_ERROR("Failed to get telemetry packing. Error code: %d", result);
-        return;
     }
     else {
         LOG_INFO("Telemetry packing: %d", pack);
@@ -443,7 +442,7 @@ void FlirRos::extractTelemetryTimestamp(void* buffer, size_t buffer_size, rclcpp
     const uint16_t* telemetry_data = static_cast<uint16_t*>(buffer) + (config_.width * config_.height);
     
     const size_t timestamp_offset = 140;  // 140th byte in the telemetry data
-    // Extract timestamp from telemetry: byte 140 and 141
+    // Extract timestamp (in milliseconds) from telemetry: byte 140 and 141
     uint32_t timestamp = (static_cast<uint32_t>(telemetry_data[timestamp_offset]) << 16) |
                      telemetry_data[timestamp_offset + 1];
     
@@ -451,6 +450,30 @@ void FlirRos::extractTelemetryTimestamp(void* buffer, size_t buffer_size, rclcpp
     std_msgs::msg::UInt32 timestamp_msg;
     timestamp_msg.data = timestamp;
     publisher_.timestamp_pub->publish(timestamp_msg);
+
+    // The following code:
+    // 1. Have the milliseconds from telemetry, which is internal clock since the start of sensor
+    // 2. Take the current system time, and set it as system_time_init only as first timestamp (T1)
+    // 3. The next time stamps (T2, T3, ... Tn) are system_time_init + (timestamp - timestamp_init) * 1e6 (convert to ns for ROS2)
+
+    if (config_.use_ext_sync) {
+        timespec system_time;
+        clock_gettime(CLOCK_REALTIME, &system_time);
+
+        uint64_t 
+        // uint64_t one_amount_nsec = 1000000000 / config_.frame_rate;  // 1 / frame_rate in ns
+        // uint64_t system_nsec = system_time.tv_nsec;
+        // uint64_t trigger_nsec = system_nsec - (system_nsec % one_amount_nsec) + static_cast<uint64_t>(config_.timestamp_offset * 1e9);
+
+        // if (trigger_nsec >= 1000000000) {
+        //     trigger_nsec -= 1000000000;
+        //     system_time.tv_sec += 1;
+        // }
+
+        // frame_time = rclcpp::Time(system_time.tv_sec, trigger_nsec);
+    } else {
+        frame_time = this->now();
+    }
     
     // LOG_INFO("Extracted telemetry timestamp: %u", timestamp);
 
