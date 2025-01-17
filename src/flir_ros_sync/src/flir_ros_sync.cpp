@@ -450,7 +450,7 @@ void FlirRos::extractTelemetryTimestamp(void* buffer, size_t buffer_size, rclcpp
     timestamp_msg.data = timestamp;
     publisher_.timestamp_pub->publish(timestamp_msg);
     
-    LOG_DEBUG("Extracted telemetry timestamp: %u", timestamp);
+    LOG_INFO("Extracted telemetry timestamp: %u", timestamp);
 
     // THE FOLLOWING WAS TRIED AND DOES NOT YIELD ANY USEFUL INFORMATION, Feel free to try yourself
     // float camera_timestamp = 0;
