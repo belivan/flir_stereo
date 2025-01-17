@@ -49,7 +49,7 @@ def generate_launch_description():
         output='screen',
         parameters=[
             {
-                'sync_mode': 1,  # 0 disable, 1 master, 2 slave
+                'sync_mode': 2,  # 0 disable, 1 master, 2 slave
                 'serial_list': [
                     ["flir_boson_serial_", left_flir_id],
                     ["flir_boson_serial_", right_flir_id]

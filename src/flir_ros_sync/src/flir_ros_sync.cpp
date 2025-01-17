@@ -223,6 +223,17 @@ void FlirRos::initializeDevice() {
         LOG_ERROR("Telemetry state is NOT ENABLED");
     }
 
+    // Check telemetry packing (16 or 8 bit)
+    FLR_TELEMETRY_PACKING_E pack;
+    auto result = telemetryGetPacking(&pack);
+    if (result != R_SUCCESS) {
+        LOG_ERROR("Failed to get telemetry packing. Error code: %d", result);
+        return;
+    }
+    else {
+        LOG_INFO("Telemetry packing: %d", pack);
+    }
+
     // Initialize size variables with telemetry lines included
     IMAGE_SIZE = config_.width * config_.height * 2;        // 16-bit per pixel (Y16) for image only
     TELEMETRY_SIZE = config_.width * 2 * 2;                // Two telemetry lines
@@ -428,17 +439,6 @@ void FlirRos::extractTelemetryTimestamp(void* buffer, size_t buffer_size, rclcpp
         return;
     }
 
-    // Check telemetry packing (16 or 8 bit)
-    FLR_TELEMETRY_PACKING_E pack;
-    auto result = telemetryGetPacking(&pack);
-    if (result != R_SUCCESS) {
-        LOG_ERROR("Failed to get telemetry packing. Error code: %d", result);
-        return;
-    }
-    else {
-        LOG_INFO("Telemetry packing: %d", pack);
-    }
-
     // Access telemetry lines (last two lines of the buffer)
     const uint16_t* telemetry_data = static_cast<uint16_t*>(buffer) + (config_.width * config_.height);
     
@@ -452,7 +452,7 @@ void FlirRos::extractTelemetryTimestamp(void* buffer, size_t buffer_size, rclcpp
     timestamp_msg.data = timestamp;
     publisher_.timestamp_pub->publish(timestamp_msg);
     
-    LOG_INFO("Extracted telemetry timestamp: %u", timestamp);
+    // LOG_INFO("Extracted telemetry timestamp: %u", timestamp);
 
     // THE FOLLOWING WAS TRIED AND DOES NOT YIELD ANY USEFUL INFORMATION, Feel free to try yourself
     // float camera_timestamp = 0;
