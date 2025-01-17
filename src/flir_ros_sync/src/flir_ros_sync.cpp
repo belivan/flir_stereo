@@ -430,7 +430,7 @@ void FlirRos::extractTelemetryTimestamp(void* buffer, size_t buffer_size, rclcpp
 
     // Check telemetry packing (16 or 8 bit)
     FLR_TELEMETRY_PACKING_E pack;
-    result = telemetryGetPacking(&pack);
+    auto result = telemetryGetPacking(&pack);
     if (result != R_SUCCESS) {
         LOG_ERROR("Failed to get telemetry packing. Error code: %d", result);
         return;
@@ -442,8 +442,10 @@ void FlirRos::extractTelemetryTimestamp(void* buffer, size_t buffer_size, rclcpp
     // Access telemetry lines (last two lines of the buffer)
     const uint16_t* telemetry_data = static_cast<uint16_t*>(buffer) + (config_.width * config_.height);
     
-    // Extract timestamp from telemetry (adjust offset based on SDK documentation)
-    uint32_t timestamp = telemetry_data[140];  // Assuming timestamp is at offset 280 bytes (140 16-bit words)
+    const size_t timestamp_offset = 140;  // 140th byte in the telemetry data
+    // Extract timestamp from telemetry: byte 140 and 141
+    uint32_t timestamp = (static_cast<uint32_t>(telemetry_data[timestamp_offset]) << 16) |
+                     telemetry_data[timestamp_offset + 1];
     
     // Publish timestamp
     std_msgs::msg::UInt32 timestamp_msg;
