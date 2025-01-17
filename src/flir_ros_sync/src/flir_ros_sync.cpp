@@ -290,7 +290,8 @@ void FlirRos::streamingLoop() {
         frame_count_++;
         if (frame_count_ % config_.send_every_n == 0) {
             rclcpp::Time frame_time;
-            // extractTelemetryTimestamp(device_.buffer, bufferinfo.bytesused, frame_time);
+            // TELEMETRY EXTRACTION DONE HERE
+            extractTelemetryTimestamp(device_.buffer, bufferinfo.bytesused, frame_time);
             getFrameTime(frame_time);
             publishFrame(bufferinfo.bytesused, frame_time);
             publishTransforms(frame_time);
