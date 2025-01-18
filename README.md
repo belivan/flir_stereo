@@ -8,7 +8,7 @@ This package provides a custom ROS 2 driver for the FLIR Boson camera. It can sw
 
 Ensure ROS 2 is installed on your system. Follow the [official ROS 2 installation guide](https://docs.ros.org/en/) for instructions specific to your ROS 2 distribution.
 
-### 2. Teensy Setup (for Time Synchronization of 2 or more cameras)
+### 2. Teensy Setup if not already configured (for Time Synchronization of 2 or more cameras)
 
 To make changes to the time synchronization behavior, set up your Teensy microcontroller:
 
