@@ -58,13 +58,6 @@ To make changes to the time synchronization behavior, set up your Teensy microco
 
    Replace `teensy41` with your actual Teensy model (e.g., `teensy36`, `teensy40`, etc.). This process allows you to compile and upload without a GUI or display.
 
----
-
-**Summary:**  
-1. Use the Arduino CLI and Teensy Loader Command Line if you’re working on a headless system.  
-2. The scripts (`time_sync_new`, `pps_trigger`) are there to demonstrate the time synchronization approach.  
-3. For best results, ensure you’ve set up the correct board manager, installed udev rules (Linux only), and chosen the correct Teensy model in your CLI commands.
-
 ### 3. Package Build (ROS 2)
 
 1. Install the required ROS 2 packages:
