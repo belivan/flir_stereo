@@ -53,7 +53,7 @@ To make changes to the time synchronization behavior, set up your Teensy microco
       ```
    2. **Upload using Teensy Loader Command Line:**  
       ```bash
-      teensy_loader_cli --mcu=TEENSY41 -w path/to/your_sketch.ino.hex
+      teensy_loader_cli --mcu=TEENSY41 -s -v path/to/your_sketch.ino.hex
       ```
 
    Replace `teensy41` with your actual Teensy model (e.g., `teensy36`, `teensy40`, etc.). This process allows you to compile and upload without a GUI or display.
