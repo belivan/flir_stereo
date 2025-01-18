@@ -301,14 +301,12 @@ void FlirRos::streamingLoop() {
         }
 
         frame_count_++;
-        if (frame_count_ % config_.send_every_n == 0) {
+        if (frame_count_ % config_.send_every_n == 0 && frame_count_ > 3) {
             rclcpp::Time frame_time;
             // TELEMETRY EXTRACTION DONE HERE
             extractTelemetryTimestamp(device_.buffer, bufferinfo.bytesused, frame_time);
-            // getFrameTime(frame_time);
             publishFrame(bufferinfo.bytesused, frame_time);
             publishTransforms(frame_time);
-            frame_count_ = 0;
         }
 
         // Check if 3 minutes have passed since last FFC
@@ -465,12 +463,20 @@ void FlirRos::extractTelemetryTimestamp(void* buffer, size_t buffer_size, rclcpp
             timestamp_init_ = timestamp;
             system_time_init_ = std::chrono::duration_cast<std::chrono::nanoseconds>(
                 std::chrono::system_clock::now().time_since_epoch()).count();
+            // Rounding system time to the nearest 100ms
+            // Add half the divisor before dividing, then multiply back.
+            system_time_init_ = ((system_time_init_ + 100000000/2) / 100000000) * 100000000;
+            LOG_INFO("Initial telemetry timestamp: %u, System time: %lu", timestamp, system_time_init_);
+
+
             first_frame_ = false;
             frame_time = rclcpp::Time(system_time_init_);
         } else {
             // Calculate timestamp offset in nanoseconds
-            uint64_t timestamp_offset_ns = (timestamp - timestamp_init_) * 1000000; // Convert ms to ns
+            uint64_t timestamp_offset_ns = static_cast<uint64_t>(timestamp - timestamp_init_) * 1000000; // Convert ms to ns
             uint64_t final_timestamp = system_time_init_ + timestamp_offset_ns;
+            LOG_INFO("Current telemetry: %u, Initial telemetry: %u, System time init: %lu, Offset: %lu, Final: %lu", 
+                     timestamp, timestamp_init_, system_time_init_, timestamp_offset_ns, final_timestamp);
             frame_time = rclcpp::Time(final_timestamp);
         }
     } else {
