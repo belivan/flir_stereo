@@ -627,7 +627,7 @@ sensor_msgs::msg::Image::SharedPtr FlirRos::rectify_image(
     cv::Mat rect_image;
 
     // rectify the image
-    cam_model_.rectifyImage(cv_ptr->image, rect_image, CV_INTER_NEAREST);  // changed from CV_INTER_LINEAR to CV_INTER_NEAREST
+    cam_model_.rectifyImage(cv_ptr->image, rect_image, CV_INTER_AREA);  // changed from CV_INTER_LINEAR to CV_INTER_NEAREST
 
     // publish the rectified image
     const sensor_msgs::msg::Image::SharedPtr rect_msg =

@@ -65,5 +65,6 @@ def generate_launch_description():
         declare_camera_name_arg,
         declare_timestamp_offset_arg,
         declare_frame_rate_arg,
+        declare_ffc_interval_arg,
         container
     ])

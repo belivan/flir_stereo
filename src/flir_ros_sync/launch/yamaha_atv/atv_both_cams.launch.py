@@ -74,6 +74,7 @@ def generate_launch_description():
         declare_raw_arg,
         declare_left_flir_id_arg,
         declare_right_flir_id_arg,
+        declare_ffc_interval_arg,
         left_camera,
         right_camera,
         set_sync_mode_node,
