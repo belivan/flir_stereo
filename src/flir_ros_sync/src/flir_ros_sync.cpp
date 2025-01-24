@@ -322,7 +322,7 @@ void FlirRos::streamingLoop() {
         auto elapsed = std::chrono::duration_cast<std::chrono::minutes>(now - last_ffc_time);
         if (elapsed.count() >= config_.ffc_interval_mins) {
             // Perform FFC
-            LOG_INFO("Performing FFC after 3 minutes");
+            LOG_INFO("Performing FFC");
             auto result = bosonRunFFC();
             if (result != R_SUCCESS) {
                 LOG_ERROR("Failed to run FFC. Error code: %d", result);
@@ -351,7 +351,7 @@ void FlirRos::streamingLoop() {
             result = bosonGetDesiredTableNumber(&desiredTableNumber);
             if (result != R_SUCCESS) {
                 LOG_ERROR("Failed to get desired table number. Error code: %d", result);
-                throw std::runtime_error("Failed to get desired table number");
+                // throw std::runtime_error("Failed to get desired table number");
             }
             else {
                 LOG_INFO("Desired table number: %d", desiredTableNumber);
@@ -363,7 +363,7 @@ void FlirRos::streamingLoop() {
         auto result = bosonGetFFCInProgress(&status);
         if (result != R_SUCCESS) {
             LOG_ERROR("Failed to get FFC status. Error code: %d", result);
-            throw std::runtime_error("Failed to get FFC status");
+            // throw std::runtime_error("Failed to get FFC status");
         }
 
         // LOG_INFO("FFC status: %d", status);
