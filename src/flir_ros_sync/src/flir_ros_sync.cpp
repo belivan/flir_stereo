@@ -366,7 +366,7 @@ void FlirRos::streamingLoop() {
             throw std::runtime_error("Failed to get FFC status");
         }
 
-        LOG_INFO("FFC status: %d", status);
+        // LOG_INFO("FFC status: %d", status);
         
         current_ffc_status = (status != 0);
         if (current_ffc_status != last_ffc_status_) {
