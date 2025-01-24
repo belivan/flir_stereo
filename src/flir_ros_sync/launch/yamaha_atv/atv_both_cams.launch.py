@@ -11,11 +11,13 @@ def generate_launch_description():
     declare_raw_arg = DeclareLaunchArgument("raw", default_value="true", description="Use raw image format")
     declare_left_flir_id_arg = DeclareLaunchArgument("left_flir_id", default_value="322011", description="Left FLIR camera ID")
     declare_right_flir_id_arg = DeclareLaunchArgument("right_flir_id", default_value="322008", description="Right FLIR camera ID")
+    declare_ffc_interval_arg = DeclareLaunchArgument("ffc_interval", default_value="3", description="Interval between FFC in minutes")
 
     # Get the launch configurations
     raw = LaunchConfiguration("raw")
     left_flir_id = LaunchConfiguration("left_flir_id")
     right_flir_id = LaunchConfiguration("right_flir_id")
+    ffc_interval = LaunchConfiguration("ffc_interval")
 
     # Paths to sub-launch file (atv-single.launch)
     flir_ros_sync_path = os.path.join(get_package_share_directory('flir_ros_sync'), 'launch', 'yamaha_atv', 'atv_single_cam.launch.py')
@@ -27,7 +29,8 @@ def generate_launch_description():
             'raw': raw,
             'flir_id': left_flir_id,
             'camera_name': 'thermal_left',
-            'frame_rate': '10'
+            'frame_rate': '10',
+            'ffc_interval': ffc_interval
         }.items(),
     )
 
@@ -37,7 +40,8 @@ def generate_launch_description():
             'raw': raw,
             'flir_id': right_flir_id,
             'camera_name': 'thermal_right',
-            'frame_rate': '10'
+            'frame_rate': '10',
+            'ffc_interval': ffc_interval
         }.items(),
     )
 

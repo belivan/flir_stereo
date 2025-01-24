@@ -20,6 +20,7 @@
 #include <sensor_msgs/msg/camera_info.hpp>
 #include <cv_bridge/cv_bridge.h>
 #include <std_msgs/msg/u_int32.hpp>
+#include <std_msgs/msg/bool.hpp>
 
 // OpenCV includes
 #include <opencv2/opencv.hpp>
@@ -51,6 +52,8 @@ struct CameraConfig {
     int send_every_n = 1;
     double timestamp_offset = 0.0;
     int frame_rate = 10;
+    int ffc_interval_mins = 3; // default 3 minutes
+
 };
 
 struct DeviceInfo {
@@ -63,6 +66,7 @@ struct DeviceInfo {
 struct PublisherContext {
     // temp timestamp pub
     rclcpp::Publisher<std_msgs::msg::UInt32>::SharedPtr timestamp_pub;
+    rclcpp::Publisher<std_msgs::msg::Bool>::SharedPtr ffc_status_pub_;
 
     std::shared_ptr<image_transport::ImageTransport> it;
     std::shared_ptr<camera_info_manager::CameraInfoManager> cinfo;
@@ -86,6 +90,9 @@ private:
     uint64_t timestamp_init_{0};  // Initial telemetry timestamp
     uint64_t system_time_init_{0}; // Initial system time
     bool first_frame_{true};
+
+    // FFC variables
+    bool last_ffc_status_{false};
 
     // Initialization methods
     void loadParameters();

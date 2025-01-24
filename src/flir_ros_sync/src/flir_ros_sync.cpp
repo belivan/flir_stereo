@@ -102,6 +102,7 @@ void FlirRos::loadParameters() {
     this->declare_parameter<int>("send_every_n", config_.send_every_n);
     this->declare_parameter<double>("timestamp_offset", config_.timestamp_offset);
     this->declare_parameter<int>("frame_rate", config_.frame_rate);
+    this->declare_parameter<int>("ffc_interval_mins", config_.ffc_interval_mins);
 
     this->get_parameter("device_name", device_.device_path);
     this->get_parameter("serial_port", device_.serial_port);
@@ -116,6 +117,7 @@ void FlirRos::loadParameters() {
     this->get_parameter("send_every_n", config_.send_every_n);
     this->get_parameter("timestamp_offset", config_.timestamp_offset);
     this->get_parameter("frame_rate", config_.frame_rate);
+    this->get_parameter("ffc_interval_mins", config_.ffc_interval_mins);
 
     LOG_INFO("Loaded parameters");
     LOG_INFO("Device name: %s", device_.device_path.c_str());
@@ -133,6 +135,7 @@ void FlirRos::loadParameters() {
     LOG_INFO("Send every N: %d", config_.send_every_n);
     LOG_INFO("Timestamp offset: %f", config_.timestamp_offset);
     LOG_INFO("Frame rate: %d", config_.frame_rate);
+    LOG_INFO("FFC interval: %d minutes", config_.ffc_interval_mins);
 }
 
 void FlirRos::initializeDevice() {
@@ -276,6 +279,9 @@ void FlirRos::setupROS() {
 
     // Init timestamp publisher
     publisher_.timestamp_pub = this->create_publisher<std_msgs::msg::UInt32>(config_.camera_name+"/telemetry_timestamp", 10);
+
+    // Init FFC status publisher
+    publisher_.ffc_status_pub_ = this->create_publisher<std_msgs::msg::Bool>(config_.camera_name+"/ffc_status", 10);
 }
 
 void FlirRos::streamingLoop() {
@@ -288,6 +294,8 @@ void FlirRos::streamingLoop() {
 
     // Initialize time tracking for FFC
     auto last_ffc_time = std::chrono::steady_clock::now();
+    bool current_ffc_status = false;
+    auto ffc_status_msg = std::make_shared<std_msgs::msg::Bool>();
 
     while (stream_active_.load()) {
         if (ioctl(device_.fd, VIDIOC_QBUF, &bufferinfo) < 0) {
@@ -312,7 +320,7 @@ void FlirRos::streamingLoop() {
         // Check if 3 minutes have passed since last FFC
         auto now = std::chrono::steady_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::minutes>(now - last_ffc_time);
-        if (elapsed.count() >= 3) {
+        if (elapsed.count() >= config_.ffc_interval_mins) {
             // Perform FFC
             LOG_INFO("Performing FFC after 3 minutes");
             auto result = bosonRunFFC();
@@ -320,7 +328,58 @@ void FlirRos::streamingLoop() {
                 LOG_ERROR("Failed to run FFC. Error code: %d", result);
                 throw std::runtime_error("Failed to run FFC");
             }
+            LOG_INFO("FFC started successfully");
+            
+            // Publish FFC status
+            ffc_status_msg->data = true;
+            publisher_.ffc_status_pub_->publish(*ffc_status_msg);
+
+            // Update last FFC time
             last_ffc_time = now;
+
+            // Verify the state of NUC table
+            result = bosonCheckForTableSwitch();
+            if (result != R_SUCCESS) {
+                LOG_ERROR("Failed to check for table switch. Error code: %d", result);
+                throw std::runtime_error("Failed to check for table switch");
+            }
+            else {
+                LOG_INFO("Checked for table switch: %d", result);
+            }
+
+            uint32_t desiredTableNumber;
+            result = bosonGetDesiredTableNumber(&desiredTableNumber);
+            if (result != R_SUCCESS) {
+                LOG_ERROR("Failed to get desired table number. Error code: %d", result);
+                throw std::runtime_error("Failed to get desired table number");
+            }
+            else {
+                LOG_INFO("Desired table number: %d", desiredTableNumber);
+            }
+        }
+
+        // Verify the state of FFC
+        int16_t status;
+        auto result = bosonGetFFCInProgress(&status);
+        if (result != R_SUCCESS) {
+            LOG_ERROR("Failed to get FFC status. Error code: %d", result);
+            throw std::runtime_error("Failed to get FFC status");
+        }
+
+        LOG_INFO("FFC status: %d", status);
+        
+        current_ffc_status = (status != 0);
+        if (current_ffc_status != last_ffc_status_) {
+            // Publish FFC status
+            ffc_status_msg->data = current_ffc_status;
+            publisher_.ffc_status_pub_->publish(*ffc_status_msg);
+            last_ffc_status_ = current_ffc_status;
+
+            if (current_ffc_status) {
+                LOG_INFO("FFC in progress");
+            } else {
+                LOG_INFO("FFC completed");
+            }
         }
     }
 }
@@ -448,10 +507,10 @@ void FlirRos::extractTelemetryTimestamp(void* buffer, size_t buffer_size, rclcpp
     uint32_t timestamp = (static_cast<uint32_t>(telemetry_data[timestamp_offset]) << 16) |
                      telemetry_data[timestamp_offset + 1];
     
-    // Publish timestamp
-    std_msgs::msg::UInt32 timestamp_msg;
-    timestamp_msg.data = timestamp;
-    publisher_.timestamp_pub->publish(timestamp_msg);
+    // Publish FLIR timestamp
+    // std_msgs::msg::UInt32 timestamp_msg;
+    // timestamp_msg.data = timestamp;
+    // publisher_.timestamp_pub->publish(timestamp_msg);
 
     // The following code:
     // 1. Have the milliseconds from telemetry, which is internal clock since the start of sensor
@@ -466,7 +525,7 @@ void FlirRos::extractTelemetryTimestamp(void* buffer, size_t buffer_size, rclcpp
             // Rounding system time to the nearest 100ms
             // Add half the divisor before dividing, then multiply back.
             system_time_init_ = ((system_time_init_ + 100000000/2) / 100000000) * 100000000;
-            LOG_INFO("Initial telemetry timestamp: %u, System time: %lu", timestamp, system_time_init_);
+            // LOG_INFO("Initial telemetry timestamp: %u, System time: %lu", timestamp, system_time_init_);
 
 
             first_frame_ = false;
@@ -475,8 +534,8 @@ void FlirRos::extractTelemetryTimestamp(void* buffer, size_t buffer_size, rclcpp
             // Calculate timestamp offset in nanoseconds
             uint64_t timestamp_offset_ns = static_cast<uint64_t>(timestamp - timestamp_init_) * 1000000; // Convert ms to ns
             uint64_t final_timestamp = system_time_init_ + timestamp_offset_ns;
-            LOG_INFO("Current telemetry: %u, Initial telemetry: %u, System time init: %lu, Offset: %lu, Final: %lu", 
-                     timestamp, timestamp_init_, system_time_init_, timestamp_offset_ns, final_timestamp);
+            // LOG_INFO("Current telemetry: %u, Initial telemetry: %u, System time init: %lu, Offset: %lu, Final: %lu", 
+            //          timestamp, timestamp_init_, system_time_init_, timestamp_offset_ns, final_timestamp);
             frame_time = rclcpp::Time(final_timestamp);
         }
     } else {
@@ -568,13 +627,31 @@ sensor_msgs::msg::Image::SharedPtr FlirRos::rectify_image(
     cv::Mat rect_image;
 
     // rectify the image
-    cam_model_.rectifyImage(cv_ptr->image, rect_image, CV_INTER_LINEAR);
+    cam_model_.rectifyImage(cv_ptr->image, rect_image, CV_INTER_NEAREST);  // changed from CV_INTER_LINEAR to CV_INTER_NEAREST
 
     // publish the rectified image
     const sensor_msgs::msg::Image::SharedPtr rect_msg =
         cv_bridge::CvImage(image_msg->header, image_msg->encoding, rect_image)
             .toImageMsg();
     return rect_msg;
+
+
+    // def rectify_image(image, intrinsics, distortion):
+    // fx, fy, cx, cy = intrinsics
+    // camera_matrix = np.array([[fx, 0, cx],
+    //                         [0, fy, cy],
+    //                         [0,  0,  1]])
+    // distortion_coeffs = np.array(distortion)
+    // height, width = image.shape[:2]
+    // # new_camera_matrix, roi = cv2.getOptimalNewCameraMatrix(camera_matrix, distortion_coeffs, (width, height), 1, (width, height))
+    // # rectified_image = cv2.undistort(image, camera_matrix, distortion_coeffs, None, new_camera_matrix)
+    // rectified_image = cv2.undistort(image, camera_matrix, distortion_coeffs)
+
+    // # x, y, w, h = roi
+    // # if w > 0 and h > 0:
+    // #     rectified_image = rectified_image[y:y+h, x:x+w]
+    
+    // return rectified_image
 }
 
 void FlirRos::publishTransform(const rclcpp::Time& time, const geometry_msgs::msg::Vector3& trans,

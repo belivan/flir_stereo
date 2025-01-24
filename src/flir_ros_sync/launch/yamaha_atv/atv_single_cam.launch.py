@@ -11,6 +11,7 @@ def generate_launch_description():
     declare_camera_name_arg = DeclareLaunchArgument("camera_name", default_value="thermal_left", description="Camera name")
     declare_timestamp_offset_arg = DeclareLaunchArgument("timestamp_offset", default_value="0.0", description="Timestamp offset")
     declare_frame_rate_arg = DeclareLaunchArgument("frame_rate", default_value="10", description="Frame rate")
+    declare_ffc_interval_arg = DeclareLaunchArgument("ffc_interval", default_value="3", description="Interval between FFC in minutes")
 
     # Retrieve arguments
     raw = LaunchConfiguration("raw")
@@ -18,6 +19,7 @@ def generate_launch_description():
     camera_name = LaunchConfiguration("camera_name")
     timestamp_offset = LaunchConfiguration("timestamp_offset")
     frame_rate = LaunchConfiguration("frame_rate")
+    ffc_interval = LaunchConfiguration("ffc_interval")
 
     # Define container for composable nodes
     container = ComposableNodeContainer(
@@ -48,6 +50,7 @@ def generate_launch_description():
                     {"gain_mode": 2},  # 0 high, 1 low, 2 auto, 3 dual, 4 manual
                     {"ffc_mode": 0},  # 0 manual, 1 auto, 2 external, 3 shutter test
                     {"frame_rate": frame_rate},
+                    {"ffc_interval": ffc_interval},
                 ],
                 remappings=[
                     ("/set_camera_info", [camera_name, "/set_camera_info"])
