@@ -8,24 +8,55 @@ This package provides a custom ROS 2 driver for the FLIR Boson camera. It can sw
 
 Ensure ROS 2 is installed on your system. Follow the [official ROS 2 installation guide](https://docs.ros.org/en/) for instructions specific to your ROS 2 distribution.
 
-### 2. Teensy Setup (for Time Synchronization of 2 or more cameras)
+### 2. Teensy Setup if not already configured (for Time Synchronization of 2 or more cameras)
 
 To make changes to the time synchronization behavior, set up your Teensy microcontroller:
 
-1. Download and install the necessary software:
-   - [Arduino IDE](https://www.arduino.cc/en/software)
-   - Board manager package: `https://www.pjrc.com/teensy/package_teensy_index.json`
-   - Udev rules (may be optional): 
+1. **Install Required Software**
+
+   - **Arduino IDE** or [Arduino CLI](https://arduino.github.io/arduino-cli/latest/).  
+     - If you need a GUI and have a display available, the Arduino IDE may be the simplest.
+     - For a headless system (e.g., SSH only, no display), use the Arduino CLI.
+   - **Board Manager Package (Teensy)**  
+     Add the following URL to Arduino/Arduino CLI preferences or board manager:  
+     ```
+     https://www.pjrc.com/teensy/package_teensy_index.json
+     ```
+   - **Udev Rules (optional on Linux)**  
+     If you’re on Linux and need permission to access the Teensy USB port without root, copy the rules file:
+     ```bash
+     sudo cp 00-teensy.rules /etc/udev/rules.d/
+     sudo udevadm control --reload-rules
+     sudo udevadm trigger
+     ```
+   - **Teensy Loader**  
+     - If you have a display, the Teensy Loader GUI can upload sketches directly.
+     - On a headless system, install the [Teensy Loader Command Line](https://www.pjrc.com/teensy/loader_cli.html) utility for uploading .hex files.
+
+2. **Reference Makefile and Scripts (optional and for future development only)**
+
+   The Teensy setup includes a `Makefile` and other scripts (e.g., `ntp_time_sync`).  
+   - These are primarily for reference from past development and might be adapted for automatic builds.  
+   - If you need advanced time synchronization between the PC and Teensy in the future, these scripts can help streamline that process.
+
+3. **Uploading Sketches or Firmware**
+
+   - **time_sync_new**
+     Uses PID control to synchronize the Teensy clock with GPS. Recommended for long-term accurate triggering where drift must remain minimal.
+   - **pps_trigger**  
+     A simpler script that tests sensor triggering without advanced time sync. It may experience clock drift over long periods but is sufficient for quick tests.
+
+   **Headless/SSH Workflow (Example)**  
+   1. **Build using Arduino CLI:**  
       ```bash
-      sudo cp 00-teensy.rules /etc/udev/rules.d/
+      arduino-cli compile --fqbn teensy:avr:teensy41 path/to/your_sketch --build-path path/to/desired_build_location
       ```
-   - Teensy Loader program (optional)
+   2. **Upload using Teensy Loader Command Line:**  
+      ```bash
+      teensy_loader_cli --mcu=TEENSY41 -s -v path/to/your_sketch.ino.hex
+      ```
 
-2. Note that the Teensy setup includes a `Makefile` along with other scripts, primarily for reference. This may be required if time synchronization between PC and Teensy is necessary in the future.
-
-3. Upload sketches to the Teensy as needed. Options include:
-   - **time_sync_new**: Uses PID control to synchronize the Teensy clock with GPS. Note: this may experience FPS issues (runs at 3Hz instead of 10Hz).
-   - **pps_trigger**: A simpler script that tests sensor triggering without advanced time sync, which may lead to clock drift over long periods.
+   Replace `teensy41` with your actual Teensy model (e.g., `teensy36`, `teensy40`, etc.). This process allows you to compile and upload without a GUI or display.
 
 ### 3. Package Build (ROS 2)
 
