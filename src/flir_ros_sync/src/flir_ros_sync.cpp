@@ -600,8 +600,8 @@ void FlirRos::publishFrame(uint32_t bytes_used, const rclcpp::Time& time) {
     object_detection::publish_if_subscribed(publisher_.image_pub, img, cam_info);
 
     // Publish rectified image
-    sensor_msgs::msg::Image::SharedPtr rect_msg = rectify_image(img, cam_info);
-    object_detection::publish_if_subscribed(publisher_.rect_image_pub, rect_msg);
+    // sensor_msgs::msg::Image::SharedPtr rect_msg = rectify_image(img, cam_info);
+    // object_detection::publish_if_subscribed(publisher_.rect_image_pub, rect_msg);
 
     // Publish transform
     // geometry_msgs::msg::Vector3 translation;
