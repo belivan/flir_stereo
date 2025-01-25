@@ -50,7 +50,7 @@ def generate_launch_description():
                     {"gain_mode": 2},  # 0 high, 1 low, 2 auto, 3 dual, 4 manual
                     {"ffc_mode": 0},  # 0 manual, 1 auto, 2 external, 3 shutter test
                     {"frame_rate": frame_rate},
-                    {"ffc_interval": ffc_interval},
+                    {"ffc_interval": ffc_interval}, # Interval between FFC in minutes
                 ],
                 remappings=[
                     ("/set_camera_info", [camera_name, "/set_camera_info"])

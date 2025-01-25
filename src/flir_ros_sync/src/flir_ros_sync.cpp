@@ -117,7 +117,7 @@ void FlirRos::loadParameters() {
     this->get_parameter("send_every_n", config_.send_every_n);
     this->get_parameter("timestamp_offset", config_.timestamp_offset);
     this->get_parameter("frame_rate", config_.frame_rate);
-    this->get_parameter("ffc_interval_mins", config_.ffc_interval_mins);
+    this->get_parameter("ffc_interval", config_.ffc_interval_mins);
 
     LOG_INFO("Loaded parameters");
     LOG_INFO("Device name: %s", device_.device_path.c_str());
@@ -174,69 +174,27 @@ void FlirRos::initializeDevice() {
     LOG_INFO("Verified gain mode set to %d", get_gain_mode(device_.serial_port));
     set_ffc_mode(config_.ffc_mode, device_.serial_port);
     LOG_INFO("Verified FFC mode set to %d", get_ffc_mode(device_.serial_port));
-    shutter(device_.serial_port);  // essentially FFC and only works when FFC mode is 0, 1, or 3
+    // shutter(device_.serial_port);  // essentially FFC and only works when FFC mode is 0, 1, or 3
 
     //Initialize FLIR SDK
 
     // Open device
     std::string port_name = device_.serial_port;
-    
     // Lookup port number using a helper function using the port name
     int32_t port_num = FSLP_lookup_port_id(const_cast<char*>(port_name.c_str()), port_name.length());
-    
     if (port_num == -1) {
         // Handle error: Port not found
         throw std::runtime_error("Invalid serial port: " + port_name);
     }
-
     FLR_RESULT result = Initialize(port_num, 921600);
     if (result != FLR_COMM_OK) {
         LOG_ERROR("Failed to initialize FLIR SDK. Error code: %d", result);
         throw std::runtime_error("FLIR SDK initialization failed");
     }
     LOG_INFO("FLIR SDK initialized successfully");
-
-    // Set telemetry location to END before configuring buffers
-    result = telemetrySetLocation(FLR_TELEMETRY_LOC_BOTTOM);
-    if (result != R_SUCCESS) {
-        LOG_ERROR("Failed to set telemetry location to END. Error code: %d", result);
-        throw std::runtime_error("Failed to set telemetry location");
-    }
     
-    FLR_TELEMETRY_LOC_E location;
-    result = telemetryGetLocation(&location);
-    if (result != R_SUCCESS) {
-        LOG_ERROR("Failed to get telemetry location. Error code: %d", result);
-        throw std::runtime_error("Failed to get telemetry location");
-    }
-    LOG_INFO("Telemetry location set to %d", location);
-
-    // Enable telemetry
-    result = telemetrySetState(FLR_ENABLE);
-    if (result != R_SUCCESS) {
-        LOG_ERROR("Failed to enable telemetry. Error code: %d", result);
-        throw std::runtime_error("Telemetry enable failed");
-    }
-    
-    FLR_ENABLE_E state;
-    result = telemetryGetState(&state);
-    if (result == R_SUCCESS && state == FLR_ENABLE) {
-        LOG_INFO("Telemetry state: ENABLED");
-    } else {
-        LOG_ERROR("Telemetry state is NOT ENABLED");
-        throw std::runtime_error("Telemetry state is NOT ENABLED");
-    }
-
-    // Check telemetry packing (16 or 8 bit)
-    FLR_TELEMETRY_PACKING_E pack;
-    result = telemetryGetPacking(&pack);
-    if (result != R_SUCCESS) {
-        LOG_ERROR("Failed to get telemetry packing. Error code: %d", result);
-        throw std::runtime_error("Failed to get telemetry packing");
-    }
-    else {
-        LOG_INFO("Telemetry packing: %d", pack);
-    }
+    // Set telemetry
+    initializeTelemetry();
     
     // Might want to modify the following if operating in 8-bit mode
     // Initialize size variables with telemetry lines included
@@ -284,6 +242,97 @@ void FlirRos::setupROS() {
     publisher_.ffc_status_pub_ = this->create_publisher<std_msgs::msg::Bool>(config_.camera_name+"/ffc_status", 10);
 }
 
+void FlirRos::initializeTelemetry() {
+    // Set telemetry location to END before configuring buffers
+    auto result = telemetrySetLocation(FLR_TELEMETRY_LOC_BOTTOM);
+    if (result != R_SUCCESS) {
+        LOG_ERROR("Failed to set telemetry location to END. Error code: %d", result);
+        throw std::runtime_error("Failed to set telemetry location");
+    }
+    
+    FLR_TELEMETRY_LOC_E location;
+    result = telemetryGetLocation(&location);
+    if (result != R_SUCCESS) {
+        LOG_ERROR("Failed to get telemetry location. Error code: %d", result);
+        throw std::runtime_error("Failed to get telemetry location");
+    }
+    LOG_INFO("Telemetry location set to %d", location);
+
+    // Enable telemetry
+    result = telemetrySetState(FLR_ENABLE);
+    if (result != R_SUCCESS) {
+        LOG_ERROR("Failed to enable telemetry. Error code: %d", result);
+        throw std::runtime_error("Telemetry enable failed");
+    }
+    
+    FLR_ENABLE_E state;
+    result = telemetryGetState(&state);
+    if (result == R_SUCCESS && state == FLR_ENABLE) {
+        LOG_INFO("Telemetry state: ENABLED");
+    } else {
+        LOG_ERROR("Telemetry state is NOT ENABLED");
+        throw std::runtime_error("Telemetry state is NOT ENABLED");
+    }
+
+    // Check telemetry packing (16 or 8 bit)
+    FLR_TELEMETRY_PACKING_E pack;
+    result = telemetryGetPacking(&pack);
+    if (result != R_SUCCESS) {
+        LOG_ERROR("Failed to get telemetry packing. Error code: %d", result);
+        throw std::runtime_error("Failed to get telemetry packing");
+    }
+    else {
+        LOG_INFO("Telemetry packing: %d", pack);
+    }
+}
+
+void FlirRos::getFFCFrameCount(uint32_t& ffc_frame_count) {
+    auto result = bosonGetFFCFrameThreshold(&ffc_frame_count);
+    if (result != R_SUCCESS) {
+        LOG_ERROR("Failed to get FFC frame count. Error code: %d", result);
+        throw std::runtime_error("Failed to get FFC frame count");
+    }
+    else {
+        LOG_INFO("FFC frame count: %d", ffc_frame_count);
+    }
+}
+
+void FlirRos::performFFC() {
+    auto result = bosonRunFFC();
+    if (result != R_SUCCESS) {
+        LOG_ERROR("Failed to run FFC. Error code: %d", result);
+        throw std::runtime_error("Failed to run FFC");
+    }
+    LOG_INFO("FFC started successfully");
+
+    // Publish FFC status
+    auto ffc_status_msg = std::make_shared<std_msgs::msg::Bool>();
+    ffc_status_msg->data = true;
+    publisher_.ffc_status_pub_->publish(*ffc_status_msg);
+}
+
+void FlirRos::checkNUCTableStatus() {
+    // Verify the state of NUC table
+    auto result = bosonCheckForTableSwitch();
+    if (result != R_SUCCESS) {
+        LOG_ERROR("Failed to check for table switch. Error code: %d", result);
+        throw std::runtime_error("Failed to check for table switch");
+    }
+    else {
+        LOG_INFO("Checked for table switch: %d", result);
+    }
+
+    uint32_t desiredTableNumber;
+    result = bosonGetDesiredTableNumber(&desiredTableNumber);
+    if (result != R_SUCCESS) {
+        LOG_ERROR("Failed to get desired table number. Error code: %d", result);
+        // throw std::runtime_error("Failed to get desired table number");
+    }
+    else {
+        LOG_INFO("Desired table number: %d", desiredTableNumber);
+    }
+}
+
 void FlirRos::streamingLoop() {
     LOG_INFO("Starting streaming thread");
     struct v4l2_buffer bufferinfo;
@@ -295,7 +344,13 @@ void FlirRos::streamingLoop() {
     // Initialize time tracking for FFC
     auto last_ffc_time = std::chrono::steady_clock::now();
     bool current_ffc_status = false;
-    auto ffc_status_msg = std::make_shared<std_msgs::msg::Bool>();
+    int ffc_frame_threshold = 0;
+    int last_ffc_frame_count = 0;
+
+    // Counter for FFC threshold
+    uint32_t ffc_frame_count = 0;
+    getFFCFrameCount(ffc_frame_count);
+    ffc_frame_threshold = ffc_frame_count;
 
     while (stream_active_.load()) {
         if (ioctl(device_.fd, VIDIOC_QBUF, &bufferinfo) < 0) {
@@ -309,6 +364,22 @@ void FlirRos::streamingLoop() {
         }
 
         frame_count_++;
+
+        // Check if 3 minutes have passed since last FFC
+        auto now = std::chrono::steady_clock::now();
+        auto elapsed = std::chrono::duration_cast<std::chrono::minutes>(now - last_ffc_time);
+        if (elapsed.count() >= config_.ffc_interval_mins || frame_count_ == 4) {  // Do FFC right after 3rd frame (1st published frame)
+            // Perform FFC
+            performFFC();
+            current_ffc_status = true;
+            last_ffc_time = now;
+            last_ffc_frame_count = frame_count_;
+
+            // Verify the state of NUC table
+            checkNUCTableStatus();
+        }
+
+        // Note: Publishing only after 3 frames because telemetry data is wrong in the first frame, so we skip a few frames
         if (frame_count_ % config_.send_every_n == 0 && frame_count_ > 3) {
             rclcpp::Time frame_time;
             // TELEMETRY EXTRACTION DONE HERE
@@ -317,70 +388,39 @@ void FlirRos::streamingLoop() {
             publishTransforms(frame_time);
         }
 
-        // Check if 3 minutes have passed since last FFC
-        auto now = std::chrono::steady_clock::now();
-        auto elapsed = std::chrono::duration_cast<std::chrono::minutes>(now - last_ffc_time);
-        if (elapsed.count() >= config_.ffc_interval_mins) {
-            // Perform FFC
-            LOG_INFO("Performing FFC");
-            auto result = bosonRunFFC();
-            if (result != R_SUCCESS) {
-                LOG_ERROR("Failed to run FFC. Error code: %d", result);
-                throw std::runtime_error("Failed to run FFC");
-            }
-            LOG_INFO("FFC started successfully");
-            
+        // Keeping track of ffc status
+        auto frame_count_diff = frame_count_ - last_ffc_frame_count;
+        if (current_ffc_status && frame_count_diff > ffc_frame_threshold) {
             // Publish FFC status
-            ffc_status_msg->data = true;
+            auto ffc_status_msg = std::make_shared<std_msgs::msg::Bool>();
+            ffc_status_msg->data = false;
             publisher_.ffc_status_pub_->publish(*ffc_status_msg);
-
-            // Update last FFC time
-            last_ffc_time = now;
-
-            // Verify the state of NUC table
-            result = bosonCheckForTableSwitch();
-            if (result != R_SUCCESS) {
-                LOG_ERROR("Failed to check for table switch. Error code: %d", result);
-                throw std::runtime_error("Failed to check for table switch");
-            }
-            else {
-                LOG_INFO("Checked for table switch: %d", result);
-            }
-
-            uint32_t desiredTableNumber;
-            result = bosonGetDesiredTableNumber(&desiredTableNumber);
-            if (result != R_SUCCESS) {
-                LOG_ERROR("Failed to get desired table number. Error code: %d", result);
-                // throw std::runtime_error("Failed to get desired table number");
-            }
-            else {
-                LOG_INFO("Desired table number: %d", desiredTableNumber);
-            }
+            current_ffc_status = false;
         }
 
-        // Verify the state of FFC
-        int16_t status;
-        auto result = bosonGetFFCInProgress(&status);
-        if (result != R_SUCCESS) {
-            LOG_ERROR("Failed to get FFC status. Error code: %d", result);
-            // throw std::runtime_error("Failed to get FFC status");
-        }
+        // Verify the state of FFC by directly checking the camera
+        // int16_t status;
+        // auto result = bosonGetFFCInProgress(&status);
+        // if (result != R_SUCCESS) {
+        //     LOG_ERROR("Failed to get FFC status. Error code: %d", result);
+        //     // throw std::runtime_error("Failed to get FFC status");
+        // }
 
-        // LOG_INFO("FFC status: %d", status);
+        // // LOG_INFO("FFC status: %d", status);
         
-        current_ffc_status = (status != 0);
-        if (current_ffc_status != last_ffc_status_) {
-            // Publish FFC status
-            ffc_status_msg->data = current_ffc_status;
-            publisher_.ffc_status_pub_->publish(*ffc_status_msg);
-            last_ffc_status_ = current_ffc_status;
+        // current_ffc_status = (status != 0);
+        // if (current_ffc_status != last_ffc_status_) {
+        //     // Publish FFC status
+        //     ffc_status_msg->data = current_ffc_status;
+        //     publisher_.ffc_status_pub_->publish(*ffc_status_msg);
+        //     last_ffc_status_ = current_ffc_status;
 
-            if (current_ffc_status) {
-                LOG_INFO("FFC in progress");
-            } else {
-                LOG_INFO("FFC completed");
-            }
-        }
+        //     if (current_ffc_status) {
+        //         LOG_INFO("FFC in progress");
+        //     } else {
+        //         LOG_INFO("FFC completed");
+        //     }
+        // }
     }
 }
 
