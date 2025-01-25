@@ -384,7 +384,7 @@ void FlirRos::streamingLoop() {
         // Check if 3 minutes have passed since last FFC
         auto now = std::chrono::steady_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::minutes>(now - last_ffc_time);
-        if (elapsed.count() >= config_.ffc_interval_mins) // || frame_count_ == 4) {  // Do FFC right after 3rd frame (1st published frame)
+        if (elapsed.count() >= config_.ffc_interval_mins) // || frame_count_ == 4)  // Do FFC right after 3rd frame (1st published frame)
         { 
             // Perform FFC
             performFFC();

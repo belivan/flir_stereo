@@ -39,6 +39,15 @@ extern "C" {
 
 namespace flir_ros_sync {
 
+// Color codes
+#define ANSI_COLOR_RED     "\x1b[31m"
+#define ANSI_COLOR_GREEN   "\x1b[32m"
+#define ANSI_COLOR_YELLOW  "\x1b[33m"
+#define ANSI_COLOR_BLUE    "\x1b[34m"
+#define ANSI_COLOR_MAGENTA "\x1b[35m"
+#define ANSI_COLOR_CYAN    "\x1b[36m"
+#define ANSI_COLOR_RESET   "\x1b[0m"
+
 struct CameraConfig {
     std::string camera_name = "flir";
     std::string intrinsic_url = "package://flir_ros_sync/data/camera_info/flir_intrinsics.yaml";
@@ -140,9 +149,10 @@ private:
     int frame_count_ = 0;
 
     // Logging macros
-    #define LOG_INFO(...) RCLCPP_INFO(this->get_logger(), __VA_ARGS__)
-    #define LOG_ERROR(...) RCLCPP_ERROR(this->get_logger(), __VA_ARGS__)
-    #define LOG_FATAL(...) RCLCPP_FATAL(this->get_logger(), __VA_ARGS__)
+    #define LOG_INFO(...) RCLCPP_INFO(this->get_logger(), ANSI_COLOR_GREEN "[INFO] " ANSI_COLOR_RESET __VA_ARGS__)
+    #define LOG_ERROR(...) RCLCPP_ERROR(this->get_logger(), ANSI_COLOR_RED "[ERROR] " ANSI_COLOR_RESET __VA_ARGS__)
+    #define LOG_FATAL(...) RCLCPP_FATAL(this->get_logger(), ANSI_COLOR_RED "[FATAL] " ANSI_COLOR_RESET __VA_ARGS__)
+    #define LOG_WARN(...) RCLCPP_WARN(this->get_logger(), ANSI_COLOR_YELLOW "[WARN] " ANSI_COLOR_RESET __VA_ARGS__)
 };
 
 }  // namespace flir_ros_sync
