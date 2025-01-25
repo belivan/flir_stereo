@@ -11,7 +11,7 @@ def generate_launch_description():
     declare_raw_arg = DeclareLaunchArgument("raw", default_value="true", description="Use raw image format")
     declare_left_flir_id_arg = DeclareLaunchArgument("left_flir_id", default_value="322011", description="Left FLIR camera ID")
     declare_right_flir_id_arg = DeclareLaunchArgument("right_flir_id", default_value="322008", description="Right FLIR camera ID")
-    declare_ffc_interval_arg = DeclareLaunchArgument("ffc_interval", default_value="3", description="Interval between FFC in minutes")
+    declare_ffc_interval_arg = DeclareLaunchArgument("ffc_interval", default_value="1", description="Interval between FFC in minutes")
 
     # Get the launch configurations
     raw = LaunchConfiguration("raw")
