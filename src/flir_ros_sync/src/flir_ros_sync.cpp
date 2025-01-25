@@ -396,6 +396,7 @@ void FlirRos::streamingLoop() {
             ffc_status_msg->data = false;
             publisher_.ffc_status_pub_->publish(*ffc_status_msg);
             current_ffc_status = false;
+            LOG_INFO("FFC completed");
         }
 
         // Verify the state of FFC by directly checking the camera
