@@ -93,6 +93,7 @@ private:
 
     // FFC variables
     bool last_ffc_status_{false};
+    int last_ffc_frame_count_{0};
 
     // Initialization methods
     void loadParameters();
