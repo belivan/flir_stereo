@@ -1,0 +1,37 @@
+flir_ros_sync:
+  left_camera:
+    device_name: "/dev/flir_boson_video_322011"
+    serial_port: "/dev/flir_boson_serial_322011"
+    camera_name: "thermal_left"
+    raw: true
+    publish_image_sharing_every_n: 1
+    send_every_n: 1
+    timestamp_offset: 0.0
+    use_ext_sync: 1
+    width: 640
+    height: 512
+    intrinsic_url: "package://flir_ros_sync/data/camera_info/yamaha_atv/thermal_left.yaml"
+    gain_mode: 2  # 0 high, 1 low, 2 auto, 3 dual, 4 manual
+    ffc_mode: 0   # 0 manual, 1 auto, 2 external, 3 shutter test
+    frame_rate: 10
+    ffc_interval: 3
+
+  right_camera:
+    device_name: "/dev/flir_boson_video_322008"
+    serial_port: "/dev/flir_boson_serial_322008"
+    camera_name: "thermal_right"
+    raw: true
+    publish_image_sharing_every_n: 1
+    send_every_n: 1
+    timestamp_offset: 0.0
+    use_ext_sync: 1
+    width: 640
+    height: 512
+    intrinsic_url: "package://flir_ros_sync/data/camera_info/yamaha_atv/thermal_right.yaml"
+    gain_mode: 2
+    ffc_mode: 0
+    frame_rate: 10
+    ffc_interval: 3
+
+  sync_mode:
+    mode: 2  # 0 disable, 1 master, 2 slave

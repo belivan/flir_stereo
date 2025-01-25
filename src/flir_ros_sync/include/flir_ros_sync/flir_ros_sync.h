@@ -104,6 +104,10 @@ private:
     bool last_ffc_status_{false};
     int last_ffc_frame_count_{1}; // Init to 1 because we do FFC from the start
 
+    // CV Mat maps
+    cv::Mar map1_, map2_; // Rectification maps
+    bool maps_initialized_{false};
+
     // Initialization methods
     void loadParameters();
     void initializeDevice();

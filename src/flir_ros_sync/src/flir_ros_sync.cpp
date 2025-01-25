@@ -670,18 +670,57 @@ sensor_msgs::msg::Image::SharedPtr FlirRos::rectify_image(
         return nullptr;
     }
 
+    if (!maps_initialized_) {
+        // Get camera matrix and distortion coefficients
+        cv::Mat K = cv::Mat(cam_model_.intrinsicMatrix());
+        cv::Mat D = cv::Mat(cam_model_.distortionCoeffs());
+
+        // Calculate optimal new camera matrix
+        cv::Mat P = cv::getOptimalNewCameraMatrix(
+            K, D, 
+            cv::Size(image_msg->width, image_msg->height),
+            1.0,  // alpha=1.0 to keep all pixels
+            cv::Size(image_msg->width, image_msg->height),
+            nullptr, false);
+        
+        // Initialize undistortion maps
+        cv::initUndistortRectifyMap(
+            K, D, cv::Mat(), 
+            P,
+            cv::Size(image_msg->width, image_msg->height),
+            CV_16SC2,
+            map1_, map2_);
+
+        // Set flag
+        maps_initialized_ = true;
+    }
+
+    // Rectify image using computed maps
     cv::Mat rect_image;
+    cv::remap(cv_ptr->image, rect_image, 
+              map1_, map2_, 
+              cv::INTER_LANCZOS4,  // High-quality interpolation
+              cv::BORDER_CONSTANT);
 
-    // rectify the image
-    cam_model_.rectifyImage(cv_ptr->image, rect_image, CV_INTER_AREA);  // changed from CV_INTER_LINEAR to CV_INTER_NEAREST
-
-    // publish the rectified image
+    // Publish the rectified image
     const sensor_msgs::msg::Image::SharedPtr rect_msg =
         cv_bridge::CvImage(image_msg->header, image_msg->encoding, rect_image)
             .toImageMsg();
+
     return rect_msg;
 
+    // Original code:
+    // cv::Mat rect_image;
 
+    // // rectify the image
+    // cam_model_.rectifyImage(cv_ptr->image, rect_image, CV_INTER_AREA);  // changed from CV_INTER_LINEAR to CV_INTER_AREA
+
+    // // publish the rectified image
+    // const sensor_msgs::msg::Image::SharedPtr rect_msg =
+    //     cv_bridge::CvImage(image_msg->header, image_msg->encoding, rect_image)
+    //         .toImageMsg();
+
+    // Yifei's code:
     // def rectify_image(image, intrinsics, distortion):
     // fx, fy, cx, cy = intrinsics
     // camera_matrix = np.array([[fx, 0, cx],

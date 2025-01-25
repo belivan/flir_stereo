@@ -1,68 +1,45 @@
 from launch import LaunchDescription
-from launch.actions import DeclareLaunchArgument, IncludeLaunchDescription
-from launch.substitutions import LaunchConfiguration
+from launch.actions import IncludeLaunchDescription
 from launch.launch_description_sources import PythonLaunchDescriptionSource
 from launch_ros.actions import Node
 from ament_index_python.packages import get_package_share_directory
 import os
+import yaml
 
 def generate_launch_description():
-    # Declare arguments
-    declare_raw_arg = DeclareLaunchArgument("raw", default_value="true", description="Use raw image format")
-    declare_left_flir_id_arg = DeclareLaunchArgument("left_flir_id", default_value="322011", description="Left FLIR camera ID")
-    declare_right_flir_id_arg = DeclareLaunchArgument("right_flir_id", default_value="322008", description="Right FLIR camera ID")
-    declare_ffc_interval_arg = DeclareLaunchArgument("ffc_interval", default_value="1", description="Interval between FFC in minutes")
+    pkg_dir = get_package_share_directory('flir_ros_sync')
+    config_file = os.path.join(pkg_dir, 'config', 'atv_both_camera_params.yaml')
+    launch_file = os.path.join(pkg_dir, 'launch', 'yamaha_atv', 'atv_single_cam.launch.py')
 
-    # Get the launch configurations
-    raw = LaunchConfiguration("raw")
-    left_flir_id = LaunchConfiguration("left_flir_id")
-    right_flir_id = LaunchConfiguration("right_flir_id")
-    ffc_interval = LaunchConfiguration("ffc_interval")
+    with open(config_file, 'r') as f:
+        config = yaml.safe_load(f)
 
-    # Paths to sub-launch file (atv-single.launch)
-    flir_ros_sync_path = os.path.join(get_package_share_directory('flir_ros_sync'), 'launch', 'yamaha_atv', 'atv_single_cam.launch.py')
-
-    # Include left and right camera launch files
     left_camera = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(flir_ros_sync_path),
-        launch_arguments={
-            'raw': raw,
-            'flir_id': left_flir_id,
-            'camera_name': 'thermal_left',
-            'frame_rate': '10',
-            'ffc_interval': ffc_interval
-        }.items(),
+        PythonLaunchDescriptionSource(launch_file),
+        launch_arguments={'camera_side': 'left'}.items()
     )
 
     right_camera = IncludeLaunchDescription(
-        PythonLaunchDescriptionSource(flir_ros_sync_path),
-        launch_arguments={
-            'raw': raw,
-            'flir_id': right_flir_id,
-            'camera_name': 'thermal_right',
-            'frame_rate': '10',
-            'ffc_interval': ffc_interval
-        }.items(),
+        PythonLaunchDescriptionSource(launch_file),
+        launch_arguments={'camera_side': 'right'}.items()
     )
 
-    # Set sync mode node
     set_sync_mode_node = Node(
         package='flir_ros_sync',
         executable='set_sync_mode',
         name='set_flir_sync_mode',
-        output='screen',
         parameters=[
-            {
-                'sync_mode': 2,  # 0 disable, 1 master, 2 slave
-                'serial_list': [
-                    ["flir_boson_serial_", left_flir_id],
-                    ["flir_boson_serial_", right_flir_id]
-                ]
-            }
-        ]
+                    {
+                    'sync_mode': config['flir_ros_sync']['sync_mode']['mode'],
+                    'serial_list': [
+                        config['flir_ros_sync']['left_camera']['serial_port'],
+                        config['flir_ros_sync']['right_camera']['serial_port']
+                        ]
+                    }
+                    ],
+        output='screen'
     )
 
-    # Teensy Status publisher
     teensy_serial_publisher = Node(
         package='flir_ros_sync',
         executable='check_teensy_status.py',
@@ -71,10 +48,6 @@ def generate_launch_description():
     )
 
     return LaunchDescription([
-        declare_raw_arg,
-        declare_left_flir_id_arg,
-        declare_right_flir_id_arg,
-        declare_ffc_interval_arg,
         left_camera,
         right_camera,
         set_sync_mode_node,

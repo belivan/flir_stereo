@@ -35,7 +35,7 @@ int main(int argc, char **argv)
     for (const std::string& serialPort : serialList)
     {
         char serialPortRoot[1024];
-        char *serialResult = realpath(("/dev/" + serialPort).c_str(), serialPortRoot);
+        char *serialResult = realpath((serialPort).c_str(), serialPortRoot);
         
         std::string errorMsg = "Serial port " + serialPort + " cannot be resolved!";
         CHECK_FATAL(!serialResult, errorMsg.c_str(), node);
