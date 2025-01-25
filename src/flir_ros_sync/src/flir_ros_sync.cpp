@@ -316,7 +316,7 @@ void FlirRos::checkNUCTableStatus() {
     auto result = bosonCheckForTableSwitch();
     if (result != R_SUCCESS) {
         LOG_ERROR("Failed to check for table switch. Error code: %d", result);
-        throw std::runtime_error("Failed to check for table switch");
+        // throw std::runtime_error("Failed to check for table switch");
     }
     else {
         LOG_INFO("Checked for table switch: %d", result);
@@ -337,7 +337,7 @@ void FlirRos::getFFCStatus(int16_t& status) {
     auto result = bosonGetFFCInProgress(&status);
     if (result != R_SUCCESS) {
         LOG_ERROR("Failed to get FFC status. Error code: %d", result);
-        throw std::runtime_error("Failed to get FFC status");
+        // throw std::runtime_error("Failed to get FFC status");
     }
     else {
         LOG_INFO("FFC status: %d", status);
@@ -360,7 +360,7 @@ void FlirRos::streamingLoop() {
 
     // Initialize time tracking for FFC
     auto last_ffc_time = std::chrono::steady_clock::now();
-    bool current_ffc_status = false;
+    bool current_ffc_status = true; // FFC happens at start (see initialization code above) and we want to force publish FFC flag (see at bottom of this function)
     // int ffc_frame_threshold = 0;
 
     // Counter for FFC threshold

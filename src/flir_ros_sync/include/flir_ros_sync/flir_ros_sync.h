@@ -93,7 +93,7 @@ private:
 
     // FFC variables
     bool last_ffc_status_{false};
-    int last_ffc_frame_count_{0};
+    int last_ffc_frame_count_{1}; // Init to 1 because we do FFC from the start
 
     // Initialization methods
     void loadParameters();
@@ -121,6 +121,8 @@ private:
     void checkNUCTableStatus();
     void performFFC();
     void getFFCFrameCount(uint32_t& ffc_frame_count);
+    void getFFCStatus(int16_t& status);
+    void publishFFCStatus(bool status);
 
     // Camera configuration and device info
     CameraConfig config_;
