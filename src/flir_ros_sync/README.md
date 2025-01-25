@@ -8,24 +8,55 @@ This package provides a custom ROS 2 driver for the FLIR Boson camera. It can sw
 
 Ensure ROS 2 is installed on your system. Follow the [official ROS 2 installation guide](https://docs.ros.org/en/) for instructions specific to your ROS 2 distribution.
 
-### 2. Teensy Setup (for Time Synchronization of 2 or more cameras)
+### 2. Teensy Setup if not already configured (for Time Synchronization of 2 or more cameras)
 
 To make changes to the time synchronization behavior, set up your Teensy microcontroller:
 
-1. Download and install the necessary software:
-   - [Arduino IDE](https://www.arduino.cc/en/software)
-   - Board manager package: `https://www.pjrc.com/teensy/package_teensy_index.json`
-   - Udev rules (may be optional): 
+1. **Install Required Software**
+
+   - **Arduino IDE** or [Arduino CLI](https://arduino.github.io/arduino-cli/latest/).  
+     - If you need a GUI and have a display available, the Arduino IDE may be the simplest.
+     - For a headless system (e.g., SSH only, no display), use the Arduino CLI.
+   - **Board Manager Package (Teensy)**  
+     Add the following URL to Arduino/Arduino CLI preferences or board manager:  
+     ```
+     https://www.pjrc.com/teensy/package_teensy_index.json
+     ```
+   - **Udev Rules (optional on Linux)**  
+     If you’re on Linux and need permission to access the Teensy USB port without root, copy the rules file:
+     ```bash
+     sudo cp 00-teensy.rules /etc/udev/rules.d/
+     sudo udevadm control --reload-rules
+     sudo udevadm trigger
+     ```
+   - **Teensy Loader**  
+     - If you have a display, the Teensy Loader GUI can upload sketches directly.
+     - On a headless system, install the [Teensy Loader Command Line](https://www.pjrc.com/teensy/loader_cli.html) utility for uploading .hex files.
+
+2. **Reference Makefile and Scripts (optional and for future development only)**
+
+   The Teensy setup includes a `Makefile` and other scripts (e.g., `ntp_time_sync`).  
+   - These are primarily for reference from past development and might be adapted for automatic builds.  
+   - If you need advanced time synchronization between the PC and Teensy in the future, these scripts can help streamline that process.
+
+3. **Uploading Sketches or Firmware**
+
+   - **time_sync_new**
+     Uses PID control to synchronize the Teensy clock with GPS. Recommended for long-term accurate triggering where drift must remain minimal.
+   - **pps_trigger**  
+     A simpler script that tests sensor triggering without advanced time sync. It may experience clock drift over long periods but is sufficient for quick tests.
+
+   **Headless/SSH Workflow (Example)**  
+   1. **Build using Arduino CLI:**  
       ```bash
-      sudo cp 00-teensy.rules /etc/udev/rules.d/
+      arduino-cli compile --fqbn teensy:avr:teensy41 path/to/your_sketch --build-path path/to/desired_build_location
       ```
-   - Teensy Loader program (optional)
+   2. **Upload using Teensy Loader Command Line:**  
+      ```bash
+      teensy_loader_cli --mcu=TEENSY41 -s -v path/to/your_sketch.ino.hex
+      ```
 
-2. Note that the Teensy setup includes a `Makefile` along with other scripts, primarily for reference. This may be required if time synchronization between PC and Teensy is necessary in the future.
-
-3. Upload sketches to the Teensy as needed. Options include:
-   - **time_sync_new**: Uses PID control to synchronize the Teensy clock with GPS. Note: this may experience FPS issues (runs at 3Hz instead of 10Hz).
-   - **pps_trigger**: A simpler script that tests sensor triggering without advanced time sync, which may lead to clock drift over long periods.
+   Replace `teensy41` with your actual Teensy model (e.g., `teensy36`, `teensy40`, etc.). This process allows you to compile and upload without a GUI or display.
 
 ### 3. Package Build (ROS 2)
 
@@ -74,9 +105,10 @@ To make changes to the time synchronization behavior, set up your Teensy microco
 
 ### 4. Review and Configure Launch Files
 
+- Review camera settings (config) files located in `/flir_ros_sync/config`
 - Review the launch files located in `/flir_ros_sync/launch/yamaha_atv`:
    - **atv_both_cams**: Used for launching the stereo setup.
-   - **test_single_cam**: Used for testing on a single camera.
+   - **test_single_cam**: Used for testing on a single camera (depreciated).
    - Both launch files use **atv_single_cam** as the base configuration.
 - Update `flir_id` to match your camera’s serial number and adjust other settings as needed for your project requirements.
 
@@ -113,18 +145,18 @@ Thermal image data will be published to `/[camera]/image`, camera info will be p
 
 ## Time Synchronization
 
-If sync mode is set to **slave**, the Teensy triggers the cameras at 10 Hz. Otherwise, each camera generates its own 60 Hz pulse. Verify the `frame_rate` parameter in the launch file, which defaults to 10 Hz. This setting is important to ensure accurate time stamping, which is manually set at a 1/(frame_rate) interval.
+If sync mode is set to **slave**, rely on the Teensy to trigger the cameras at 10 Hz. Otherwise, each camera generates its own 60 Hz pulse (**master** or **disabled**). See `flir_ros_sync/src/flir_ros_sync.cpp` for details on time synchronization and sensor telemetry data processing.
 
 ## Notes
 
 * The `udev` rules create symlinks `/dev/flir_boson_video` and `/dev/flir_boson_serial` for FLIR Boson cameras.
 * The node publishes thermal images to `/[camera_name]/image` and camera info to `/[camera_name]/camera_info`.
+* Other topics include a bool flag to report FFC status and a Teensy status topic.
 * For multiple thermal cameras, adjust the `flir_id` and `camera_name` in each camera's node configuration.
-* FLIR Boson cameras only require USB 2.0 ports.
+* FLIR Boson cameras only require USB 2.0 ports; it is better if you use USB 3.0 ports and have a powered USB hub (critical for stereo setup)
 
 ## TODO
 
-* Integrate the FLIR Boson SDK for NUC control, which is attempted in `trigger_ffc.py`.
 * Determine time set offset per camera system.
 * Add health metrics.
 * Monitor and handle device disconnections.
