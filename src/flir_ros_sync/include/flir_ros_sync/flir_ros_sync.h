@@ -98,6 +98,7 @@ private:
     void loadParameters();
     void initializeDevice();
     void setupROS();
+    void initializeTelemetry();
 
     // Streaming methods
     void streamingLoop();
@@ -116,6 +117,9 @@ private:
     bool setFormat(int fd, bool raw);
     bool requestBuffers(int fd);
     bool startStreaming(int fd);
+    void checkNUCTableStatus();
+    void performFFC();
+    void getFFCFrameCount(int32_t& ffc_frame_count);
 
     // Camera configuration and device info
     CameraConfig config_;
