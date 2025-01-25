@@ -238,7 +238,7 @@ void FlirRos::setupROS() {
     publisher_.rect_image_pub = publisher_.it->advertise(publisher_.rect_topic_name, 10);
 
     // Init timestamp publisher
-    publisher_.timestamp_pub = this->create_publisher<std_msgs::msg::UInt32>(config_.camera_name+"/telemetry_timestamp", 10);
+    // publisher_.timestamp_pub = this->create_publisher<std_msgs::msg::UInt32>(config_.camera_name+"/telemetry_timestamp", 10);
 
     // Init FFC status publisher
     publisher_.ffc_status_pub_ = this->create_publisher<std_msgs::msg::Bool>(config_.camera_name+"/ffc_status", 10);
