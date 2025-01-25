@@ -102,7 +102,7 @@ void FlirRos::loadParameters() {
     this->declare_parameter<int>("send_every_n", config_.send_every_n);
     this->declare_parameter<double>("timestamp_offset", config_.timestamp_offset);
     this->declare_parameter<int>("frame_rate", config_.frame_rate);
-    this->declare_parameter<int>("ffc_interval_mins", config_.ffc_interval_mins);
+    this->declare_parameter<int>("ffc_interval", config_.ffc_interval_mins);
 
     this->get_parameter("device_name", device_.device_path);
     this->get_parameter("serial_port", device_.serial_port);

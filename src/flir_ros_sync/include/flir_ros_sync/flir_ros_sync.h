@@ -119,7 +119,7 @@ private:
     bool startStreaming(int fd);
     void checkNUCTableStatus();
     void performFFC();
-    void getFFCFrameCount(int32_t& ffc_frame_count);
+    void getFFCFrameCount(uint32_t& ffc_frame_count);
 
     // Camera configuration and device info
     CameraConfig config_;
