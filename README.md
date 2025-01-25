@@ -105,9 +105,10 @@ To make changes to the time synchronization behavior, set up your Teensy microco
 
 ### 4. Review and Configure Launch Files
 
+- Review camera settings (config) files located in '/flir_ros_sync/config'
 - Review the launch files located in `/flir_ros_sync/launch/yamaha_atv`:
    - **atv_both_cams**: Used for launching the stereo setup.
-   - **test_single_cam**: Used for testing on a single camera.
+   - **test_single_cam**: Used for testing on a single camera (depreciated).
    - Both launch files use **atv_single_cam** as the base configuration.
 - Update `flir_id` to match your camera’s serial number and adjust other settings as needed for your project requirements.
 
