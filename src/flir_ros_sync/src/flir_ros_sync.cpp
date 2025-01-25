@@ -174,7 +174,7 @@ void FlirRos::initializeDevice() {
     LOG_INFO("Verified gain mode set to %d", get_gain_mode(device_.serial_port));
     set_ffc_mode(config_.ffc_mode, device_.serial_port);
     LOG_INFO("Verified FFC mode set to %d", get_ffc_mode(device_.serial_port));
-    // shutter(device_.serial_port);  // essentially FFC and only works when FFC mode is 0, 1, or 3
+    shutter(device_.serial_port);  // essentially FFC and only works when FFC mode is 0, 1, or 3
 
     //Initialize FLIR SDK
 
@@ -195,6 +195,8 @@ void FlirRos::initializeDevice() {
     
     // Set telemetry
     initializeTelemetry();
+
+    // performFFC();
     
     // Might want to modify the following if operating in 8-bit mode
     // Initialize size variables with telemetry lines included
@@ -286,16 +288,16 @@ void FlirRos::initializeTelemetry() {
     }
 }
 
-void FlirRos::getFFCFrameCount(uint32_t& ffc_frame_count) {
-    auto result = bosonGetFFCFrameThreshold(&ffc_frame_count);
-    if (result != R_SUCCESS) {
-        LOG_ERROR("Failed to get FFC frame count. Error code: %d", result);
-        throw std::runtime_error("Failed to get FFC frame count");
-    }
-    else {
-        LOG_INFO("FFC frame count: %d", ffc_frame_count);
-    }
-}
+// void FlirRos::getFFCFrameCount(uint32_t& ffc_frame_count) {
+//     auto result = bosonGetFFCFrameThreshold(&ffc_frame_count);
+//     if (result != R_SUCCESS) {
+//         LOG_ERROR("Failed to get FFC frame count. Error code: %d", result);
+//         throw std::runtime_error("Failed to get FFC frame count");
+//     }
+//     else {
+//         LOG_INFO("FFC frame count: %d", ffc_frame_count);
+//     }
+// }
 
 void FlirRos::performFFC() {
     auto result = bosonRunFFC();
@@ -348,9 +350,9 @@ void FlirRos::streamingLoop() {
     int last_ffc_frame_count = 0;
 
     // Counter for FFC threshold
-    uint32_t ffc_frame_count = 0;
-    getFFCFrameCount(ffc_frame_count);
-    ffc_frame_threshold = ffc_frame_count;
+    // uint32_t ffc_frame_count = 0;
+    // getFFCFrameCount(ffc_frame_count);
+    // ffc_frame_threshold = ffc_frame_count;
 
     while (stream_active_.load()) {
         if (ioctl(device_.fd, VIDIOC_QBUF, &bufferinfo) < 0) {
@@ -368,7 +370,8 @@ void FlirRos::streamingLoop() {
         // Check if 3 minutes have passed since last FFC
         auto now = std::chrono::steady_clock::now();
         auto elapsed = std::chrono::duration_cast<std::chrono::minutes>(now - last_ffc_time);
-        if (elapsed.count() >= config_.ffc_interval_mins || frame_count_ == 4) {  // Do FFC right after 3rd frame (1st published frame)
+        if (elapsed.count() >= config_.ffc_interval_mins) // || frame_count_ == 4) {  // Do FFC right after 3rd frame (1st published frame)
+        { 
             // Perform FFC
             performFFC();
             current_ffc_status = true;
@@ -407,11 +410,12 @@ void FlirRos::streamingLoop() {
             // throw std::runtime_error("Failed to get FFC status");
         }
 
-        // LOG_INFO("FFC status: %d", status);
+        LOG_INFO("FFC status: %d", status);
         
         current_ffc_status = (status != 0);
         if (current_ffc_status != last_ffc_status_) {
             // Publish FFC status
+            auto ffc_status_msg = std::make_shared<std_msgs::msg::Bool>();
             ffc_status_msg->data = current_ffc_status;
             publisher_.ffc_status_pub_->publish(*ffc_status_msg);
             last_ffc_status_ = current_ffc_status;
