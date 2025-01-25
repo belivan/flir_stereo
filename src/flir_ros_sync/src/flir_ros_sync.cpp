@@ -340,7 +340,7 @@ void FlirRos::getFFCStatus(int16_t& status) {
         // throw std::runtime_error("Failed to get FFC status");
     }
     else {
-        LOG_INFO("FFC status: %d", status);
+        // LOG_INFO("FFC status: %d", status);
     }
 }
 
@@ -359,7 +359,7 @@ void FlirRos::streamingLoop() {
     bufferinfo.index = 0;
 
     // Initialize time tracking for FFC
-    auto last_ffc_time = std::chrono::steady_clock::now();
+    // auto last_ffc_time = std::chrono::steady_clock::now();
     bool current_ffc_status = true; // FFC happens at start (see initialization code above) and we want to force publish FFC flag (see at bottom of this function)
     // int ffc_frame_threshold = 0;
 
@@ -389,7 +389,7 @@ void FlirRos::streamingLoop() {
             // Perform FFC
             performFFC();
             current_ffc_status = true;
-            last_ffc_time = now;
+            // last_ffc_time = now;
             last_ffc_frame_count_ = frame_count_;
 
             // Verify the state of NUC table
@@ -417,16 +417,11 @@ void FlirRos::streamingLoop() {
         // }
 
         // Verify the state of FFC by directly checking the camera only if FFC has been initiated and some time has passed
-        if (current_ffc_status && frame_count_ >= last_ffc_frame_count_) {
-            int16_t status;
-            getFFCStatus(status);
-            current_ffc_status = (status != 0);
-            if (!current_ffc_status) {
-                // Publish FFC status
-                publishFFCStatus(current_ffc_status);
-                LOG_INFO("FFC completed");
-            }
-        }
+        // if (current_ffc_status && frame_count_ >= last_ffc_frame_count_) {}
+        int16_t status;
+        getFFCStatus(status);
+        current_ffc_status = status;
+        publishFFCStatus(current_ffc_status);
     }
 }
 
@@ -646,8 +641,8 @@ void FlirRos::publishFrame(uint32_t bytes_used, const rclcpp::Time& time) {
     object_detection::publish_if_subscribed(publisher_.image_pub, img, cam_info);
 
     // Publish rectified image
-    // sensor_msgs::msg::Image::SharedPtr rect_msg = rectify_image(img, cam_info);
-    // object_detection::publish_if_subscribed(publisher_.rect_image_pub, rect_msg);
+    sensor_msgs::msg::Image::SharedPtr rect_msg = rectify_image(img, cam_info);
+    object_detection::publish_if_subscribed(publisher_.rect_image_pub, rect_msg);
 
     // Publish transform
     // geometry_msgs::msg::Vector3 translation;
@@ -688,7 +683,7 @@ sensor_msgs::msg::Image::SharedPtr FlirRos::rectify_image(
             K, D, cv::Mat(), 
             P,
             cv::Size(image_msg->width, image_msg->height),
-            CV_16SC2,
+            CV_32FC1,
             map1_, map2_);
 
         // Set flag
@@ -699,7 +694,7 @@ sensor_msgs::msg::Image::SharedPtr FlirRos::rectify_image(
     cv::Mat rect_image;
     cv::remap(cv_ptr->image, rect_image, 
               map1_, map2_, 
-              cv::INTER_LANCZOS4,  // High-quality interpolation
+              cv::INTER_LINEAR,
               cv::BORDER_CONSTANT);
 
     // Publish the rectified image
