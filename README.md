@@ -145,18 +145,18 @@ Thermal image data will be published to `/[camera]/image`, camera info will be p
 
 ## Time Synchronization
 
-If sync mode is set to **slave**, the Teensy triggers the cameras at 10 Hz. Otherwise, each camera generates its own 60 Hz pulse. Verify the `frame_rate` parameter in the launch file, which defaults to 10 Hz. This setting is important to ensure accurate time stamping, which is manually set at a 1/(frame_rate) interval.
+If sync mode is set to **slave**, rely on the Teensy to trigger the cameras at 10 Hz. Otherwise, each camera generates its own 60 Hz pulse (**master** or **disabled**). See `flir_ros_sync/src/flir_ros_sync.cpp` for details on time synchronization and sensor telemetry data processing.
 
 ## Notes
 
 * The `udev` rules create symlinks `/dev/flir_boson_video` and `/dev/flir_boson_serial` for FLIR Boson cameras.
 * The node publishes thermal images to `/[camera_name]/image` and camera info to `/[camera_name]/camera_info`.
+* Other topics include a bool flag to report FFC status and a Teensy status topic.
 * For multiple thermal cameras, adjust the `flir_id` and `camera_name` in each camera's node configuration.
-* FLIR Boson cameras only require USB 2.0 ports.
+* FLIR Boson cameras only require USB 2.0 ports; it is better if you use USB 3.0 ports and have a powered USB hub (critical for stereo setup)
 
 ## TODO
 
-* Integrate the FLIR Boson SDK for NUC control, which is attempted in `trigger_ffc.py`.
 * Determine time set offset per camera system.
 * Add health metrics.
 * Monitor and handle device disconnections.
