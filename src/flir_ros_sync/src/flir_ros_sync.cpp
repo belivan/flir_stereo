@@ -359,7 +359,7 @@ void FlirRos::streamingLoop() {
     bufferinfo.index = 0;
 
     // Initialize time tracking for FFC
-    // auto last_ffc_time = std::chrono::steady_clock::now();
+    auto last_ffc_time = std::chrono::steady_clock::now();
     bool current_ffc_status = true; // FFC happens at start (see initialization code above) and we want to force publish FFC flag (see at bottom of this function)
     // int ffc_frame_threshold = 0;
 
