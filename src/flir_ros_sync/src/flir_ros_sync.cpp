@@ -389,7 +389,7 @@ void FlirRos::streamingLoop() {
             // Perform FFC
             performFFC();
             current_ffc_status = true;
-            // last_ffc_time = now;
+            last_ffc_time = now;
             last_ffc_frame_count_ = frame_count_;
 
             // Verify the state of NUC table
